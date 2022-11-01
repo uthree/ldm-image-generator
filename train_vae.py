@@ -18,7 +18,7 @@ use_autocast = True
 weight_recon = 10
 weight_kl = 1
 
-ds = ImageDataset(sys.argv[1:], max_len=1000, size=image_size)
+ds = ImageDataset(sys.argv[1:], max_len=10000, size=image_size)
 vae = VAE()
 discriminator = Discriminator()
 
@@ -70,5 +70,6 @@ for epoch in range(num_epoch):
         scaler.update()
         bar.set_description(desc=f"Recon: {loss_recon.item():.4f}, KL: {loss_kl.item():.4f}, Adv: {loss_adv.item():.4f}, Disc. {loss_d.item():.4f}")
         bar.update(N)
-    torch.save(vae.state_dict(), vae_path)
-    torch.save(discriminator.state_dict(), discriminator_path)
+        if batch % 1000 == 0:
+            torch.save(vae.state_dict(), vae_path)
+            torch.save(discriminator.state_dict(), discriminator_path)
