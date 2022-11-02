@@ -18,7 +18,7 @@ use_autocast = True
 weight_recon = 10
 weight_kl = 1
 
-ds = ImageDataset(sys.argv[1:], max_len=100, size=image_size)
+ds = ImageDataset(sys.argv[1:], max_len=1000, size=image_size)
 vae = VAE()
 discriminator = Discriminator()
 
