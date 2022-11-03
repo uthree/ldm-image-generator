@@ -9,10 +9,10 @@ import torch.nn.functional as F
 import torch.nn as nn
 
 ddpm_path = "./ddpm.pt"
-batch_size = 16
+batch_size = 64
 num_epoch = 3000
 learning_rate = 1e-4
-image_size = 64
+image_size = 32
 use_autocast = True
 
 ds = ImageDataset(sys.argv[1:], max_len=10000, size=image_size)
@@ -36,17 +36,16 @@ for epoch in range(num_epoch):
         N = image.shape[0]
         optimizer.zero_grad()
         image = image.to(device)
-
+        
         with torch.cuda.amp.autocast(enabled=use_autocast):
             ddpm_loss = ddpm.caluclate_loss(image)
-        loss = ddpm_loss
-        nn.utils.clip_grad_norm_(ddpm.parameters(), max_norm=1.0, norm_type=2.0)
-        loss = scaler.scale(loss)
-        loss.backward()
+            loss = ddpm_loss
+            loss = scaler.scale(loss)
+            loss.backward()
         scaler.step(optimizer)
     
         scaler.update()
-        bar.set_description(desc=f"loss: {ddpm_loss.item()}")
+        bar.set_description(desc=f"loss: {ddpm_loss.item():.4f}")
         bar.update(N)
         if batch % 1000 == 0:
             torch.save(ddpm.state_dict(), ddpm_path)

@@ -92,7 +92,7 @@ class UNetBlock(nn.Module):
 
 # UNet with style
 class UNet(nn.Module):
-    def __init__(self, input_channels=3, output_channels=3, stages=[3, 3, 3, 3], channels=[64, 128, 256, 512], tanh=False, stem_size=4):
+    def __init__(self, input_channels=3, output_channels=3, stages=[2, 2, 2], channels=[64, 128, 256], tanh=False, stem_size=2):
         super().__init__()
         self.encoder_first = nn.Conv2d(input_channels, channels[0], stem_size, stem_size, 0)
 
@@ -146,7 +146,13 @@ class DDPM(nn.Module):
         loss = torch.abs(out - noise).mean()
         return loss
     @torch.no_grad()
-    def sample(self, x_shape=(1, 3, 64, 64), condition=None):
+    def sample(self, x_shape=(1, 3, 64, 64), condition=None, seed=1):
+        # Python random
+        random.seed(seed)
+        # Pytorch
+        torch.manual_seed(seed)
+        torch.cuda.manual_seed(seed)
+
         x = torch.randn(*x_shape, device=self.model.parameters().__next__().device)
         beta = torch.linspace(self.beta_min, self.beta_max, steps=self.num_timesteps)
         alpha = 1 - beta
@@ -154,10 +160,11 @@ class DDPM(nn.Module):
         for t in reversed(range(1, self.num_timesteps)):
             k = 1 / math.sqrt(alpha[t])
             z = torch.randn(*x.shape, device=x.device)
-            sigma = 1 - k
+            alpha_bar_t = torch.prod(alpha[0:t]).item()
+            alpha_bar_t_next = torch.prod(alpha[0:t-1]).item()
+            sigma = math.sqrt(((1-alpha_bar_t_next)/(1-alpha_bar_t)) * beta[t])
             if t == 1:
                 sigma = 0
-            alpha_bar_t = torch.prod(alpha[0:t]).item()
             x = k * (x - (1-alpha[t])/math.sqrt(1-alpha_bar_t) * self.model(x=x, time=t))
             bar.update()
         return x
