@@ -5,8 +5,6 @@ import os
 from tqdm import tqdm
 import torch
 import torch.optim as optim
-import torch.nn.functional as F
-import torch.nn as nn
 
 ddpm_path = "./ddpm.pt"
 batch_size = 128
