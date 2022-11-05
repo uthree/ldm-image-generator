@@ -8,31 +8,34 @@ class PositionalEncoding2d(nn.Module):
     def __init__(self, channels):
         super().__init__()
         self.channels = channels
+        self.div_term = 100
 
     def forward(self, x):
         ev = torch.arange(x.shape[2], device=x.device, dtype=x.dtype).reshape(1, 1, x.shape[2], 1) / x.shape[2]
         eh = torch.arange(x.shape[3], device=x.device, dtype=x.dtype).reshape(1, 1, 1, x.shape[3]) / x.shape[3]
         factors = 2 ** torch.arange(self.channels//4, device=x.device).reshape(1, self.channels//4, 1, 1)
-        factors = factors / 10000
+        factors = factors / self.div_term
         ev = torch.cat([torch.sin(ev * math.pi * factors), torch.cos(ev * math.pi * factors)], dim=1)
         eh = torch.cat([torch.sin(eh * math.pi * factors), torch.cos(eh * math.pi * factors)], dim=1)
         emb = torch.cat([torch.repeat_interleave(ev, x.shape[3], dim=3), torch.repeat_interleave(eh, x.shape[2], dim=2)], dim=1)
         return x + emb
 
 class TimeEncoding2d(nn.Module):
-    def __init__(self, channels):
+    def __init__(self, channels, max_timesteps=10000):
         super().__init__()
         self.channels = channels
-
+        self.div_term = max_timesteps
+    
+    # t: [batch_size]
     def forward(self, x, t):
-        emb = torch.full(x.shape, t, device=x.device)
+        emb = t.unsqueeze(1).expand(t.shape[0], self.channels).unsqueeze(-1).unsqueeze(-1)
         e1, e2 = torch.chunk(emb, 2, dim=1)
         factors = 2 ** torch.arange(self.channels//2, device=x.device) 
-        factors = factors.unsqueeze(0).unsqueeze(2).unsqueeze(3) / 10000
+        factors = factors.unsqueeze(0).unsqueeze(2).unsqueeze(3) / self.div_term
         e1 = torch.sin(e1 * math.pi * factors)
         e2 = torch.cos(e2 * math.pi * factors)
         emb = torch.cat([e1, e2], dim=1)
-        return x + t
+        return x + emb
 
 class ChannelNorm(nn.Module):
     def __init__(self, channels, eps=1e-6):
@@ -58,13 +61,15 @@ class ConvNeXtBlock(nn.Module):
         self.act = nn.LeakyReLU(0.1)
         self.c3 = nn.Conv2d(dim_ffn, channels, 1, 1, 0)
 
-        self.pos_enc = PositionalEncoding2d(channels)
-        self.time_enc = TimeEncoding2d(channels)
+        self.pos_enc = PositionalEncoding2d(channels//2)
+        self.time_enc = TimeEncoding2d(channels//2)
 
     def forward(self, x, time):
         res = x
-        x = self.time_enc(x, time)
-        x = self.pos_enc(x)
+        x1, x2 = torch.chunk(x, 2, dim=1)
+        x1 = self.time_enc(x1, time)
+        x2 = self.pos_enc(x2)
+        x = torch.cat([x1, x2], dim=1)
         x = self.c1(x)
         x = self.norm(x)
         x = self.c2(x)
@@ -124,47 +129,63 @@ class UNet(nn.Module):
         return x
 
 class DDPM(nn.Module):
-    # model: model(x: Torch.tensor, condition: Torch.tensor, time: float[0 ~ 1]) -> Torch.tensor
+    # model: model(x: Torch.tensor [Batch_size, *], condition: Torch.tensor, time: Torch.tensor [Batch_size]) -> Torch.tensor
     # x: Gaussian noise
     # condition: Condition vectors(Tokens) or None
     # time: Timestep
-    def __init__(self, model=UNet(), num_timesteps=1000, beta_max=0.02, beta_min=1e-4):
+    def __init__(self, model=UNet(), beta_min=1e-4, beta_max=0.02, num_timesteps=1000, loss_function = nn.L1Loss()):
         super().__init__()
         self.model = model
-        self.num_timesteps = 1000
-        self.beta_max = beta_max
-        self.beta_min = beta_min
+        self.beta = torch.linspace(beta_min, beta_max, num_timesteps)
+        self.alpha = 1 - self.beta
+        self.num_timesteps = num_timesteps
+        self.loss_function = loss_function
+
+        # caluclate alpha_bar
+        self.alpha_bar = []
+        for t in range(1, num_timesteps+1):
+            self.alpha_bar.append(torch.prod(self.alpha[:t]))
+        self.alpha_bar = torch.Tensor(self.alpha_bar)
+
+        # calculate beta_tilde ( for caluclate sigma[t] )
+        self.beta_tilde = [1]
+        for t in range(1, num_timesteps):
+            self.beta_tilde.append((1-self.alpha_bar[t-1])/(1-self.alpha_bar[t]) * self.beta[t])
+        self.beta_tilde = torch.Tensor(self.beta_tilde)
 
     def caluclate_loss(self, x, condition=None):
-        t = random.randint(0, self.num_timesteps)
-        t_scaled = t / self.num_timesteps
-        beta = torch.linspace(self.beta_min, self.beta_max, steps=self.num_timesteps)
-        alpha = 1 - beta
-        alpha_bar_t = torch.prod(alpha[0:t]).item()
-        noise = torch.randn(*x.shape, device=x.device)
-        out = self.model(x=(math.sqrt(alpha_bar_t)*x + math.sqrt(1-alpha_bar_t) * noise), time=t_scaled, condition=condition)
-        loss = torch.abs(out - noise).mean()
+        t = torch.randint(low=1, high=self.num_timesteps, size=(x.shape[0],))
+        alpha_bar_t = torch.index_select(self.alpha_bar, 0, t).to(x.device)
+        while alpha_bar_t.ndim < x.ndim:
+            alpha_bar_t = alpha_bar_t.unsqueeze(-1)
+        e = torch.randn(*x.shape, device=x.device)
+        t = t.to(x.device)
+        e_theta = self.model(x=torch.sqrt(alpha_bar_t) * x + torch.sqrt(1 - alpha_bar_t) * e, time=t, condition=condition)
+        loss = self.loss_function(e, e_theta)
         return loss
+
     @torch.no_grad()
     def sample(self, x_shape=(1, 3, 64, 64), condition=None, seed=1):
+        # device
+        device = self.model.parameters().__next__().device
+
         # Python random
         random.seed(seed)
         # Pytorch
         torch.manual_seed(seed)
         torch.cuda.manual_seed(seed)
 
-        x = torch.randn(*x_shape, device=self.model.parameters().__next__().device)
-        beta = torch.linspace(self.beta_min, self.beta_max, steps=self.num_timesteps)
-        alpha = 1 - beta
+        # Initialize
+        x = torch.randn(*x_shape, device=device)
+        
         bar = tqdm(total=self.num_timesteps)
-        for t in reversed(range(1, self.num_timesteps)):
-            k = 1 / math.sqrt(alpha[t])
-            z = torch.randn(*x.shape, device=x.device)
-            alpha_bar_t = torch.prod(alpha[0:t]).item()
-            alpha_bar_t_next = torch.prod(alpha[0:t-1]).item()
-            sigma = math.sqrt(((1-alpha_bar_t_next)/(1-alpha_bar_t)) * beta[t])
-            if t == 1:
-                sigma = 0
-            x = k * (x - (1-alpha[t])/math.sqrt(1-alpha_bar_t) * self.model(x=x, time=t))
-            bar.update()
+        for t in reversed(range(self.num_timesteps)):
+            z = torch.randn(*x_shape, device=device)
+            sigma = torch.sqrt(self.beta_tilde[t])
+            if t == 0:
+                sigma = sigma * 0
+            t_tensor = torch.full((x_shape[0],),t)
+            x = (1/torch.sqrt(self.alpha[t])) * (x - ((1-self.alpha[t])/torch.sqrt(1-self.alpha_bar[t])) * self.model(x=x, time=t_tensor, condition=condition)) + sigma * z
+            bar.set_description(f"sugma: {sigma.item():.6f}")
+            bar.update(1)
         return x

@@ -33,6 +33,7 @@ if not os.path.exists(result_dir):
 
 for i in range(num_images):
     img = ddpm.sample(x_shape=(1, 3, image_size, image_size), seed=i)
+    img = torch.clamp(img, -1, 1)
     path = os.path.join(result_dir, f"{i}.jpg")
     img = Image.fromarray((img[0].cpu().numpy() * 127.5 + 127.5).astype(np.uint8).transpose(1,2,0), mode='RGB')
     img.save(path)
