@@ -97,7 +97,7 @@ class UNetBlock(nn.Module):
 
 # UNet with style
 class UNet(nn.Module):
-    def __init__(self, input_channels=3, output_channels=3, stages=[2, 2, 2], channels=[64, 128, 256], tanh=False, stem_size=2):
+    def __init__(self, input_channels=3, output_channels=3, stages=[2, 2, 2, 2], channels=[64, 128, 256, 512], tanh=False, stem_size=4):
         super().__init__()
         self.encoder_first = nn.Conv2d(input_channels, channels[0], stem_size, stem_size, 0)
 
@@ -161,7 +161,7 @@ class DDPM(nn.Module):
         e = torch.randn(*x.shape, device=x.device)
         t = t.to(x.device)
         e_theta = self.model(x=torch.sqrt(alpha_bar_t) * x + torch.sqrt(1 - alpha_bar_t) * e, time=t, condition=condition)
-        loss = self.loss_function(e, e_theta)
+        loss = self.loss_function(e_theta, e)
         return loss
 
     @torch.no_grad()
@@ -184,7 +184,7 @@ class DDPM(nn.Module):
             sigma = torch.sqrt(self.beta_tilde[t])
             if t == 0:
                 sigma = sigma * 0
-            t_tensor = torch.full((x_shape[0],),t)
+            t_tensor = torch.full((x_shape[0],), t, device=device)
             x = (1/torch.sqrt(self.alpha[t])) * (x - ((1-self.alpha[t])/torch.sqrt(1-self.alpha_bar[t])) * self.model(x=x, time=t_tensor, condition=condition)) + sigma * z
             bar.set_description(f"sugma: {sigma.item():.6f}")
             bar.update(1)

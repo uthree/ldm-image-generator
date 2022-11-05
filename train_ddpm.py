@@ -9,13 +9,13 @@ import torch.nn.functional as F
 import torch.nn as nn
 
 ddpm_path = "./ddpm.pt"
-batch_size = 8
+batch_size = 128
 num_epoch = 3000
 learning_rate = 1e-4
-image_size = 256
+image_size = 64
 use_autocast = True
 
-ds = ImageDataset(sys.argv[1:], max_len=1000, size=image_size)
+ds = ImageDataset(sys.argv[1:], max_len=10000, size=image_size)
 ddpm = DDPM()
 
 if os.path.exists(ddpm_path):

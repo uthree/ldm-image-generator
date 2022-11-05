@@ -11,11 +11,10 @@ from PIL import Image
 import numpy as np
 
 ddpm_path = "./ddpm.pt"
-learning_rate = 1e-4
-image_size = 32
-use_autocast = True
+image_size = 64
 result_dir = "./results/"
-num_images = 10
+num_images = 1
+use_cpu = False
 
 ddpm = DDPM()
 
@@ -24,7 +23,9 @@ if os.path.exists(ddpm_path):
     print("DDPM Model Loaded.")
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-device= torch.device('cpu')
+if use_cpu:
+    device = torch.device('cpu')
+
 print(f"device: {device}")
 ddpm.to(device)
 

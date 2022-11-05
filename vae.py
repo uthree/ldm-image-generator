@@ -90,7 +90,7 @@ class DecoderLayer(nn.Module):
         return x, rgb
 
 class Encoder(nn.Module):
-    def __init__(self, input_channels=3, latent_channels=3, channels=[64, 128, 256], stages=[4, 4, 4], style_dim=512):
+    def __init__(self, input_channels=3, latent_channels=3, channels=[64, 128, 256, 512], stages=[4, 4, 4, 4], style_dim=512):
         super().__init__()
         self.stacks = nn.ModuleList([])
         self.downsamples = nn.ModuleList([])
@@ -130,7 +130,7 @@ class Mapper(nn.Module):
         return self.seq(style)
 
 class Decoder(nn.Module):
-    def __init__(self, output_channels=3, latent_channels=3, channels=[256, 128, 64], stages=[4, 4, 4], style_dim=512):
+    def __init__(self, output_channels=3, latent_channels=3, channels=[256, 128, 64, 512], stages=[4, 4, 4, 4], style_dim=512):
         super().__init__()
         self.stacks = nn.ModuleList([])
         self.upsamples = nn.ModuleList([])
