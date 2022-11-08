@@ -17,6 +17,7 @@ class PositionalEncoding2d(nn.Module):
         ev = torch.cat([torch.sin(ev * math.pi * factors), torch.cos(ev * math.pi * factors)], dim=1)
         eh = torch.cat([torch.sin(eh * math.pi * factors), torch.cos(eh * math.pi * factors)], dim=1)
         emb = torch.cat([torch.repeat_interleave(ev, x.shape[3], dim=3), torch.repeat_interleave(eh, x.shape[2], dim=2)], dim=1)
+        emb = emb.expand(*x.shape)
 
         ret = emb if self.return_encoding_only else x + emb
         return ret
@@ -36,7 +37,7 @@ class TimeEncoding2d(nn.Module):
         factors = factors.unsqueeze(0).unsqueeze(2).unsqueeze(3) / self.div_term
         e1 = torch.sin(e1 * math.pi * factors)
         e2 = torch.cos(e2 * math.pi * factors)
-        emb = torch.cat([e1, e2], dim=1)
+        emb = torch.cat([e1, e2], dim=1).expand(*x.shape)
 
         ret = emb if self.return_encoding_only else x + emb
         return ret

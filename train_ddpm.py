@@ -7,10 +7,10 @@ import torch
 import torch.optim as optim
 
 ddpm_path = "./ddpm.pt"
-batch_size = 128
+batch_size = 64
 num_epoch = 3000
 learning_rate = 1e-4
-image_size = 64
+image_size = 32
 use_autocast = True
 
 ds = ImageDataset(sys.argv[1:], max_len=10000, size=image_size)

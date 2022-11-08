@@ -3,13 +3,14 @@ import torch.nn as nn
 import math
 import random
 from tqdm import tqdm
+from unet import UNet
 
 class DDPM(nn.Module):
     # model: model(x: Torch.tensor [Batch_size, *], condition: Torch.tensor, time: Torch.tensor [Batch_size]) -> Torch.tensor
     # x: Gaussian noise
     # condition: Condition vectors(Tokens) or None
     # time: Timestep
-    def __init__(self, model, beta_min=1e-4, beta_max=0.02, num_timesteps=1000, loss_function = nn.L1Loss()):
+    def __init__(self, model=UNet(), beta_min=1e-4, beta_max=0.02, num_timesteps=1000, loss_function = nn.L1Loss()):
         super().__init__()
         self.model = model
         self.beta = torch.linspace(beta_min, beta_max, num_timesteps)
@@ -62,6 +63,6 @@ class DDPM(nn.Module):
                 sigma = sigma * 0
             t_tensor = torch.full((x_shape[0],), t, device=device)
             x = (1/torch.sqrt(self.alpha[t])) * (x - ((1-self.alpha[t])/torch.sqrt(1-self.alpha_bar[t])) * self.model(x=x, time=t_tensor, condition=condition)) + sigma * z
-            bar.set_description(f"sugma: {sigma.item():.6f}")
+            bar.set_description(f"sigma: {sigma.item():.6f}")
             bar.update(1)
         return x
