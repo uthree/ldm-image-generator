@@ -10,7 +10,7 @@ ddpm_path = "./ddpm.pt"
 batch_size = 64
 num_epoch = 3000
 learning_rate = 1e-4
-image_size = 32
+image_size = 128
 use_autocast = True
 
 ds = ImageDataset(sys.argv[1:], max_len=10000, size=image_size)

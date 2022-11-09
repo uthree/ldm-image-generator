@@ -11,9 +11,9 @@ from PIL import Image
 import numpy as np
 
 ddpm_path = "./ddpm.pt"
-image_size = 32
+image_size = 128
 result_dir = "./results/"
-num_images = 1
+num_images = 10
 use_cpu = False
 
 ddpm = DDPM()
