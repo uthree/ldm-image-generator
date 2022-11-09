@@ -10,13 +10,13 @@ import torch.optim as optim
 
 ddpm_path = "./ddpm.pt"
 vae_path = "./vae.pt"
-batch_size = 1
+batch_size = 8
 num_epoch = 3000
 learning_rate = 1e-4
 image_size = 512
 use_autocast = True
 
-ds = ImageDataset(sys.argv[1:], max_len=1000, size=image_size)
+ds = ImageDataset(sys.argv[1:], max_len=12000, size=image_size)
 
 ddpm = DDPM()
 if os.path.exists(ddpm_path):

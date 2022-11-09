@@ -10,15 +10,15 @@ import torch.nn as nn
 
 vae_path = "./vae.pt"
 discriminator_path = "./discriminator.pt"
-batch_size = 1
-num_epoch = 30
+batch_size = 4
+num_epoch = 10
 learning_rate = 1e-4
 image_size = 512
 use_autocast = True
 weight_recon = 10
 weight_kl = 1
 
-ds = ImageDataset(sys.argv[1:], max_len=2000, size=image_size)
+ds = ImageDataset(sys.argv[1:], max_len=5000, size=image_size)
 vae = VAE()
 discriminator = Discriminator()
 
@@ -70,6 +70,6 @@ for epoch in range(num_epoch):
         scaler.update()
         bar.set_description(desc=f"Recon: {loss_recon.item():.4f}, KL: {loss_kl.item():.4f}, Adv: {loss_adv.item():.4f}, Disc. {loss_d.item():.4f}")
         bar.update(N)
-        if batch % 1000 == 0:
+        if batch % 200 == 0:
             torch.save(vae.state_dict(), vae_path)
             torch.save(discriminator.state_dict(), discriminator_path)

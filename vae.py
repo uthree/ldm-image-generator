@@ -61,7 +61,7 @@ class Conv2dMod(nn.Module):
         return x
 
 class StyleBlock(nn.Module):
-    def __init__(self, channels, style_dim=512):
+    def __init__(self, channels, style_dim=256):
         super().__init__()
         self.conv = Conv2dMod(channels, channels, kernel_size=3)
         self.l1 = nn.Linear(style_dim, channels)
@@ -74,7 +74,7 @@ class StyleBlock(nn.Module):
         return x
 
 class DecoderLayer(nn.Module):
-    def __init__(self, channels, num_blocks=2, style_dim=512, output_channels=3):
+    def __init__(self, channels, num_blocks=2, style_dim=256, output_channels=3):
         super().__init__()
         self.blocks = nn.ModuleList([StyleBlock(channels, style_dim) for _ in range(num_blocks)])
         self.l1 = nn.Linear(style_dim, output_channels)
@@ -90,7 +90,7 @@ class DecoderLayer(nn.Module):
         return x, rgb
 
 class Encoder(nn.Module):
-    def __init__(self, input_channels=3, latent_channels=8, channels=[64, 128, 256, 512], stages=[2, 2, 2, 2], style_dim=512):
+    def __init__(self, input_channels=3, latent_channels=8, channels=[64, 128, 192, 256], stages=[2, 2, 2, 2], style_dim=256):
         super().__init__()
         self.stacks = nn.ModuleList([])
         self.downsamples = nn.ModuleList([])
@@ -117,7 +117,7 @@ class Encoder(nn.Module):
         return mean, logvar, style_mean, style_logvar
 
 class Mapper(nn.Module):
-    def __init__(self, style_dim, num_layers=7):
+    def __init__(self, style_dim, num_layers=3):
         super().__init__()
         seq = []
         for _ in range(num_layers):
@@ -130,7 +130,7 @@ class Mapper(nn.Module):
         return self.seq(style)
 
 class Decoder(nn.Module):
-    def __init__(self, output_channels=3, latent_channels=8, channels=[256, 128, 64, 512], stages=[4, 3, 2, 2], style_dim=512):
+    def __init__(self, output_channels=3, latent_channels=3, channels=[256, 192, 128, 64], stages=[4, 4, 3, 2], style_dim=256):
         super().__init__()
         self.stacks = nn.ModuleList([])
         self.upsamples = nn.ModuleList([])
@@ -157,7 +157,7 @@ class Decoder(nn.Module):
         return rgb_out
 
 class VAE(nn.Module):
-    def __init__(self, channels=3, latent_channels=8, style_dim=512):
+    def __init__(self, channels=3, latent_channels=3, style_dim=256):
         super().__init__()
         self.encoder = Encoder(input_channels=channels, latent_channels=latent_channels, style_dim=style_dim)
         self.decoder = Decoder(output_channels=channels, latent_channels=latent_channels, style_dim=style_dim)
@@ -186,12 +186,12 @@ class VAE(nn.Module):
     @torch.no_grad()
     def decode(self, x, style=None):
         if style == None:
-            style = torch.randn(x.shape[0], self.style_dim)
+            style = torch.randn(x.shape[0], self.style_dim, device=x.device)
         out = self.decoder(x, style)
         return out
 
 class Discriminator(nn.Module):
-    def __init__(self, input_channels=3, channels=[64, 128, 256], stages=[2, 2, 4]):
+    def __init__(self, input_channels=3, channels=[64, 128, 192, 256], stages=[2, 2, 3, 4]):
         super().__init__()
         self.stacks = nn.ModuleList([])
         self.downsamples = nn.ModuleList([])
