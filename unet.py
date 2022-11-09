@@ -129,7 +129,7 @@ class UNetBlock(nn.Module):
         self.ch_conv = ch_conv
 
 class UNet(nn.Module):
-    def __init__(self, input_channels=3, stages=[3, 3, 3, 3], channels=[96, 128, 256, 512], stem_size=4, num_mid_layers=6):
+    def __init__(self, input_channels=8, stages=[3, 3, 3, 3], channels=[96, 128, 256, 512], stem_size=4, num_mid_layers=6):
         super().__init__()
         self.encoder_first = nn.Conv2d(input_channels, channels[0], stem_size, stem_size, 0)
         self.decoder_last = nn.ConvTranspose2d(channels[0], input_channels, stem_size, stem_size, 0)

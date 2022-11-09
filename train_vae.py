@@ -10,15 +10,15 @@ import torch.nn as nn
 
 vae_path = "./vae.pt"
 discriminator_path = "./discriminator.pt"
-batch_size = 4
+batch_size = 1
 num_epoch = 30
 learning_rate = 1e-4
-image_size = 256
+image_size = 512
 use_autocast = True
 weight_recon = 10
 weight_kl = 1
 
-ds = ImageDataset(sys.argv[1:], max_len=10000, size=image_size)
+ds = ImageDataset(sys.argv[1:], max_len=2000, size=image_size)
 vae = VAE()
 discriminator = Discriminator()
 

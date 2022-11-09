@@ -90,7 +90,7 @@ class DecoderLayer(nn.Module):
         return x, rgb
 
 class Encoder(nn.Module):
-    def __init__(self, input_channels=3, latent_channels=3, channels=[64, 128, 256, 512], stages=[4, 4, 4, 4], style_dim=512):
+    def __init__(self, input_channels=3, latent_channels=8, channels=[64, 128, 256, 512], stages=[2, 2, 2, 2], style_dim=512):
         super().__init__()
         self.stacks = nn.ModuleList([])
         self.downsamples = nn.ModuleList([])
@@ -130,7 +130,7 @@ class Mapper(nn.Module):
         return self.seq(style)
 
 class Decoder(nn.Module):
-    def __init__(self, output_channels=3, latent_channels=3, channels=[256, 128, 64, 512], stages=[4, 4, 4, 4], style_dim=512):
+    def __init__(self, output_channels=3, latent_channels=8, channels=[256, 128, 64, 512], stages=[4, 3, 2, 2], style_dim=512):
         super().__init__()
         self.stacks = nn.ModuleList([])
         self.upsamples = nn.ModuleList([])
@@ -157,10 +157,11 @@ class Decoder(nn.Module):
         return rgb_out
 
 class VAE(nn.Module):
-    def __init__(self):
+    def __init__(self, channels=3, latent_channels=8, style_dim=512):
         super().__init__()
-        self.encoder = Encoder()
-        self.decoder = Decoder()
+        self.encoder = Encoder(input_channels=channels, latent_channels=latent_channels, style_dim=style_dim)
+        self.decoder = Decoder(output_channels=channels, latent_channels=latent_channels, style_dim=style_dim)
+        self.style_dim = style_dim
     
     def caluclate_loss(self, x):
         mean, logvar, style_mean, style_logvar = self.encoder(x)
@@ -174,6 +175,20 @@ class VAE(nn.Module):
         kl_style = -1 - style_logvar.mean() + torch.exp(style_logvar).mean() + (style_mean**2).mean()
         kl_divergence_loss = kl_feat + kl_style
         return reconstruction_loss, kl_divergence_loss, y
+
+    @torch.no_grad()
+    def encode(self, x):
+        mean, logvar, style_mean, style_logvar = self.encoder(x)
+        style = torch.randn(*style_mean.shape, device=x.device)
+        feat = torch.randn(*mean.shape, device=x.device)
+        return feat, style
+
+    @torch.no_grad()
+    def decode(self, x, style=None):
+        if style == None:
+            style = torch.randn(x.shape[0], self.style_dim)
+        out = self.decoder(x, style)
+        return out
 
 class Discriminator(nn.Module):
     def __init__(self, input_channels=3, channels=[64, 128, 256], stages=[2, 2, 4]):
