@@ -66,3 +66,20 @@ class DDPM(nn.Module):
             bar.set_description(f"sigma: {sigma.item():.6f}")
             bar.update(1)
         return x
+    
+    # DDIM (http://arxiv.org/abs/2010.02502)
+    @torch.no_grad()
+    def sample_implicitly(self, x_shape=(1, 3, 64, 64), condition=None, seed=1, num_steps=100):
+        # device
+        device = self.model.parameters().__next__().device
+
+        # Python random
+        random.seed(seed)
+        # Pytorch
+        torch.manual_seed(seed)
+        torch.cuda.manual_seed(seed)
+
+        # Initialize
+        x = torch.randn(*x_shape, device=device)
+
+

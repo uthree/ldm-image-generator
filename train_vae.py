@@ -11,7 +11,7 @@ import torch.nn as nn
 vae_path = "./vae.pt"
 discriminator_path = "./discriminator.pt"
 batch_size = 4
-num_epoch = 10
+num_epoch = 3
 learning_rate = 1e-4
 image_size = 512
 use_autocast = True
