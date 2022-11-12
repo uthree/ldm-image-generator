@@ -42,7 +42,7 @@ class DDPM(nn.Module):
         return loss
 
     @torch.no_grad()
-    def sample(self, x_shape=(1, 3, 64, 64), condition=None, seed=1):
+    def sample(self, x_shape=(1, 3, 64, 64), condition=None, seed=1, use_autocast=True):
         # device
         device = self.model.parameters().__next__().device
 
@@ -56,15 +56,16 @@ class DDPM(nn.Module):
         x = torch.randn(*x_shape, device=device)
         
         bar = tqdm(total=self.num_timesteps)
-        for t in reversed(range(self.num_timesteps)):
-            z = torch.randn(*x_shape, device=device)
-            sigma = torch.sqrt(self.beta_tilde[t])
-            if t == 0:
-                sigma = sigma * 0
-            t_tensor = torch.full((x_shape[0],), t, device=device)
-            x = (1/torch.sqrt(self.alpha[t])) * (x - ((1-self.alpha[t])/torch.sqrt(1-self.alpha_bar[t])) * self.model(x=x, time=t_tensor, condition=condition)) + sigma * z
-            bar.set_description(f"sigma: {sigma.item():.6f}")
-            bar.update(1)
+        with torch.cuda.amp.autocast(enabled=use_autocast):
+            for t in reversed(range(self.num_timesteps)):
+                z = torch.randn(*x_shape, device=device)
+                sigma = torch.sqrt(self.beta_tilde[t])
+                if t == 0:
+                    sigma = sigma * 0
+                t_tensor = torch.full((x_shape[0],), t, device=device)
+                x = (1/torch.sqrt(self.alpha[t])) * (x - ((1-self.alpha[t])/torch.sqrt(1-self.alpha_bar[t])) * self.model(x=x, time=t_tensor, condition=condition)) + sigma * z
+                bar.set_description(f"sigma: {sigma.item():.6f}")
+                bar.update(1)
         return x
     
     # DDIM (http://arxiv.org/abs/2010.02502)

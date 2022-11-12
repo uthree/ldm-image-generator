@@ -10,13 +10,13 @@ import torch.optim as optim
 
 ddpm_path = "./ddpm.pt"
 vae_path = "./vae.pt"
-batch_size = 8
+batch_size = 64
 num_epoch = 3000
 learning_rate = 1e-4
-image_size = 512
+image_size = 256
 use_autocast = True
 
-ds = ImageDataset(sys.argv[1:], max_len=12000, size=image_size)
+ds = ImageDataset(sys.argv[1:], max_len=20000, size=image_size)
 
 ddpm = DDPM()
 if os.path.exists(ddpm_path):
@@ -57,6 +57,6 @@ for epoch in range(num_epoch):
         scaler.update()
         bar.set_description(desc=f"loss: {ldm_loss.item():.4f}")
         bar.update(N)
-        if batch % 1000 == 0:
+        if batch % 200 == 0:
             torch.save(ddpm.state_dict(), ddpm_path)
 
