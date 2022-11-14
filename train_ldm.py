@@ -7,16 +7,22 @@ import os
 from tqdm import tqdm
 import torch
 import torch.optim as optim
+from torchvision import transforms as T
 
 ddpm_path = "./ddpm.pt"
 vae_path = "./vae.pt"
-batch_size = 64
+batch_size = 16
 num_epoch = 3000
 learning_rate = 2e-5
-image_size = 256
+image_size = 512
 use_autocast = True
+data_augmentation = True
 
 ds = ImageDataset(sys.argv[1:], max_len=20000, size=image_size)
+da = T.Compose([
+    T.RandomHorizontalFlip(),
+    T.RandomHorizontalFlip(10),
+    ]) if data_augmentation else torch.nn.Identity()
 
 ddpm = DDPM()
 if os.path.exists(ddpm_path):
@@ -46,6 +52,7 @@ for epoch in range(num_epoch):
         N = image.shape[0]
         optimizer.zero_grad()
         image = image.to(device)
+        image = da(image)
         
         with torch.cuda.amp.autocast(enabled=use_autocast):
             ldm_loss = ldm.caluclate_loss(image)

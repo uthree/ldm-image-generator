@@ -13,6 +13,8 @@ import multiprocessing
 import glob
 
 import joblib
+from PIL import ImageFile
+ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 class ImageDataset(torch.utils.data.Dataset):
     """Some Information about ImageDataset"""

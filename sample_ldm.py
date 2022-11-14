@@ -14,7 +14,7 @@ import numpy as np
 
 ddpm_path = "./ddpm.pt"
 vae_path = "./vae.pt"
-image_size = 32
+image_size = 64
 result_dir = "./ldm_results/"
 num_images = 100
 use_cpu = False

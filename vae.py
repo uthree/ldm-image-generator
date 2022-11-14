@@ -244,7 +244,7 @@ class VAE(nn.Module):
                 # Train G.
                 optimizer_g.zero_grad()
                 with torch.cuda.amp.autocast(enabled=use_autocast):
-                    z, style = self.encode(x, sigma=1)
+                    z, style = self.encode(x, sigma=0)
                     y = self.decoder(z, style)
                     loss_recon = (x-y).abs().mean() * weight_recon
                     logits, loss_feat = discriminator(y, x)
