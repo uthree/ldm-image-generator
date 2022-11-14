@@ -10,14 +10,14 @@ import torch.nn as nn
 
 vae_path = "./vae.pt"
 discriminator_path = "./discriminator.pt"
-batch_size = 8
-num_epoch = 10
+batch_size = 2
+num_epoch = 100
 lr = 1e-4
-image_size = 256
+image_size = 512
 train_adv = True
 use_autocast = True
 
-ds = ImageDataset(sys.argv[1:], max_len=5000, size=image_size)
+ds = ImageDataset(sys.argv[1:], max_len=10000, size=image_size)
 vae = VAE()
 
 if os.path.exists(vae_path):

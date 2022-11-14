@@ -259,8 +259,8 @@ class VAE(nn.Module):
                 y = y.detach()
                 optimizer_d.zero_grad()
                 with torch.cuda.amp.autocast(enabled=use_autocast):
-                    loss_fake = F.relu(0.5 + discriminator.discriminate(y)).mean()
-                    loss_real = F.relu(0.5 - discriminator.discriminate(x)).mean()
+                    loss_fake = F.relu(discriminator.discriminate(y)).mean()
+                    loss_real = F.relu(discriminator.discriminate(x)).mean()
                     loss_d = loss_fake + loss_real
                 loss_d = scaler.scale(loss_d)
                 loss_d.backward()

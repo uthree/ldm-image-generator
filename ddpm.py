@@ -42,15 +42,17 @@ class DDPM(nn.Module):
         return loss
 
     @torch.no_grad()
-    def sample(self, x_shape=(1, 3, 64, 64), condition=None, seed=1, use_autocast=True):
+    def sample(self, x_shape=(1, 3, 64, 64), condition=None, seed=None, use_autocast=True):
         # device
         device = self.model.parameters().__next__().device
-
-        # Python random
-        random.seed(seed)
-        # Pytorch
-        torch.manual_seed(seed)
-        torch.cuda.manual_seed(seed)
+        
+        # seed
+        if seed != None:
+            # Python random
+            random.seed(seed)
+            # Pytorch
+            torch.manual_seed(seed)
+            torch.cuda.manual_seed(seed)
 
         # Initialize
         x = torch.randn(*x_shape, device=device)

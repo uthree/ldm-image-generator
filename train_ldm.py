@@ -12,7 +12,7 @@ ddpm_path = "./ddpm.pt"
 vae_path = "./vae.pt"
 batch_size = 64
 num_epoch = 3000
-learning_rate = 1e-4
+learning_rate = 2e-5
 image_size = 256
 use_autocast = True
 

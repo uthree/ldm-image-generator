@@ -16,7 +16,7 @@ ddpm_path = "./ddpm.pt"
 vae_path = "./vae.pt"
 image_size = 32
 result_dir = "./ldm_results/"
-num_images = 10
+num_images = 100
 use_cpu = False
 
 ddpm = DDPM()
@@ -43,7 +43,7 @@ if not os.path.exists(result_dir):
     os.mkdir(result_dir)
 
 for i in range(num_images):
-    img = ldm.sample((1, 4, image_size, image_size), seed=i)
+    img = ldm.sample((1, 4, image_size, image_size), seed=None)
     img = torch.clamp(img, -1, 1)
     path = os.path.join(result_dir, f"{i}.jpg")
     img = Image.fromarray((img[0].cpu().numpy() * 127.5 + 127.5).astype(np.uint8).transpose(1,2,0), mode='RGB')
