@@ -7,13 +7,13 @@ import torch
 import torch.optim as optim
 
 ddpm_path = "./ddpm.pt"
-batch_size = 64
+batch_size = 16
 num_epoch = 3000
 learning_rate = 1e-4
-image_size = 128
+image_size = 64
 use_autocast = True
 
-ds = ImageDataset(sys.argv[1:], max_len=10000, size=image_size)
+ds = ImageDataset(sys.argv[1:], max_len=20000, size=image_size)
 ddpm = DDPM()
 
 if os.path.exists(ddpm_path):
@@ -47,4 +47,3 @@ for epoch in range(num_epoch):
         bar.update(N)
         if batch % 1000 == 0:
             torch.save(ddpm.state_dict(), ddpm_path)
-

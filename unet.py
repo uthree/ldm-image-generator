@@ -5,13 +5,16 @@ from sinusoidal import TimeEncoding2d, PositionalEncoding2d
 class Encodings(nn.Module):
     def __init__(self, channels):
         super().__init__()
-        self.proj = nn.Conv2d(channels*2, channels*2, 1, 1, 0)
+        self.proj1 = nn.Conv2d(channels*2, channels*2, 1, 1, 0)
+        self.act = nn.ReLU()
+        self.proj2 = nn.Conv2d(channels*2, channels*2, 1, 1, 0)
         self.pe = PositionalEncoding2d(channels, return_encoding_only=True)
         self.te = TimeEncoding2d(channels, return_encoding_only=True)
 
     def forward(self, x, t):
         embs = torch.cat([self.pe(x), self.te(x, t)], dim=1)
-        mul, bias = torch.chunk(self.proj(embs), 2, dim=1)
+        embs = self.proj2(self.act(self.proj1(embs)))
+        mul, bias = torch.chunk(embs, 2, dim=1)
         x = x * mul + bias
         return x
 
@@ -88,18 +91,18 @@ class ConvStack(nn.Module):
 class ViTLayer(nn.Module):
     def __init__(self, d_model, head_dim=64):
         super().__init__()
-        self.attention = nn.MultiheadAttention(d_model, d_model//head_dim, batch_first=True)
+        self.self_attention = nn.MultiheadAttention(d_model, d_model//head_dim, batch_first=True)
+        self.cross_attention = nn.MultiheadAttention(d_model, d_model//head_dim, batch_first=True)
         self.norm = LayerNorm(d_model)
         self.ff = FeedForward(d_model)
 
     def forward(self, x, keys=None):
         res = x
         x = self.norm(x)
+        attn_out, _ = self.self_attention(x, x, x)
         if keys != None:
-            x_k = torch.cat([x, keys], dim=1)
-        else:
-            x_k = x
-        attn_out, _ = self.attention(x, x_k, x_k) 
+            # Apply cross attention
+            attn_out, _ = self.self_attention(x, keys, keys)
         x = attn_out + self.ff(x)
         x = res + x
         return x
@@ -129,7 +132,7 @@ class UNetBlock(nn.Module):
         self.ch_conv = ch_conv
 
 class UNet(nn.Module):
-    def __init__(self, input_channels=4, stages=[3, 3, 3, 3], channels=[64, 128, 256, 512], stem_size=1, num_mid_layers=6):
+    def __init__(self, input_channels=3, stages=[2, 2, 2, 2], channels=[64, 128, 256, 512], stem_size=1, num_mid_layers=6):
         super().__init__()
         self.encoder_first = nn.Conv2d(input_channels, channels[0], stem_size, stem_size, 0)
         self.decoder_last = nn.ConvTranspose2d(channels[0], input_channels, stem_size, stem_size, 0)

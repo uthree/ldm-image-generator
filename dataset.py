@@ -18,7 +18,7 @@ ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 class ImageDataset(torch.utils.data.Dataset):
     """Some Information about ImageDataset"""
-    def __init__(self, source_dir_pathes=[], cache_dir="./dataset_cache/", size=8, max_len=100000):
+    def __init__(self, source_dir_pathes=[], cache_dir="./dataset_cache/", size=8, max_len=-1):
         super(ImageDataset, self).__init__()
         self.image_path_list = []
         print("Getting paths")
@@ -95,5 +95,3 @@ class ImageDataset(torch.utils.data.Dataset):
 
     def __len__(self):
         return os.listdir(self.cache_dir).__len__()
-
-

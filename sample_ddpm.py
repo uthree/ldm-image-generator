@@ -11,7 +11,7 @@ from PIL import Image
 import numpy as np
 
 ddpm_path = "./ddpm.pt"
-image_size = 128
+image_size = 64
 result_dir = "./results/"
 num_images = 10
 use_cpu = False
@@ -33,7 +33,7 @@ if not os.path.exists(result_dir):
     os.mkdir(result_dir)
 
 for i in range(num_images):
-    img = ddpm.sample((1, 3, image_size, image_size), seed=i)
+    img = ddpm.sample_implicitly((1, 3, image_size, image_size), seed=i)
     img = torch.clamp(img, -1, 1)
     path = os.path.join(result_dir, f"{i}.jpg")
     img = Image.fromarray((img[0].cpu().numpy() * 127.5 + 127.5).astype(np.uint8).transpose(1,2,0), mode='RGB')
