@@ -72,17 +72,18 @@ class DDPM(nn.Module):
                 bar.update(1)
         return x
     
-    # DDIM (http://arxiv.org/abs/2010.02502)
+    # sample as DDIM (http://arxiv.org/abs/2010.02502)
     @torch.no_grad()
-    def sample_implicitly(self, x_shape=(1, 3, 64, 64), condition=None, seed=1, num_steps=25, use_autocast=True, schedule='linear', eta=0):
+    def sample_implicitly(self, x_shape=(1, 3, 64, 64), condition=None, seed=None, num_steps=25, use_autocast=True, schedule='linear', eta=0):
         # device
         device = self.model.parameters().__next__().device
-
-        # Python random
-        random.seed(seed)
-        # Pytorch
-        torch.manual_seed(seed)
-        torch.cuda.manual_seed(seed)
+        
+        if seed != None:
+            # Python random
+            random.seed(seed)
+            # Pytorch
+            torch.manual_seed(seed)
+            torch.cuda.manual_seed(seed)
 
         # Initialize
         x = torch.randn(*x_shape, device=device)
@@ -109,6 +110,5 @@ class DDPM(nn.Module):
                     x = x_t0
                 else:
                     x = term_1 + term_2 + term_3
-                #print(term_1.isnan().any(), term_2.isnan().any(), term_3.isnan().any())
                 bar.update(1)
         return x
