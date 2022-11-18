@@ -50,13 +50,11 @@ class WindowAttention(nn.Module):
     def _split_window(self, x):
         ws = self.window_size
         x = torch.cat(torch.split(x, ws, dim=3), dim=2)
-        x = torch.cat(torch.split(x, ws*ws, dim=2), dim=0)
+        x = torch.cat(torch.split(x, ws, dim=2), dim=0)
         return x
 
     def _concat_window(self, x, nwin_h, nwin_w):
-        print(x.shape)
         x = torch.cat(torch.chunk(x, nwin_h*nwin_w, dim=0), dim=2)
-        print(x.shape)
         x = torch.cat(torch.chunk(x, nwin_w, dim=2), dim=3)
         return x
     

@@ -13,7 +13,7 @@ learning_rate = 1e-4
 image_size = 32
 use_autocast = True
 
-ds = ImageDataset(sys.argv[1:], max_len=10000, size=image_size)
+ds = ImageDataset(sys.argv[1:], max_len=1000, size=image_size)
 ddpm = DDPM()
 
 if os.path.exists(ddpm_path):

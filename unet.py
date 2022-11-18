@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 from sinusoidal import TimeEncoding2d, PositionalEncoding2d
+from attention import WindowAttention
 
 class Encodings(nn.Module):
     def __init__(self, channels):
@@ -31,7 +32,7 @@ class FeedForward(nn.Module):
         return self.c(self.a(x) * self.act(self.b(x)))
 
 # Conv (ReGLU)
-class ConvFF(nn.Module):
+class ConvFFN(nn.Module):
     def __init__(self, channels, ffn_mul=4):
         super().__init__()
         self.a = nn.Conv2d(channels, channels*ffn_mul, 1, 1, 0)
@@ -40,17 +41,6 @@ class ConvFF(nn.Module):
         self.c = nn.Conv2d(channels*ffn_mul, channels, 1, 1, 0)
     def forward(self, x):
         return self.c(self.a(x) * self.act(self.b(x)))
-
-class LayerNorm(nn.Module):
-    def __init__(self, d_model, eps=1e-4):
-        super().__init__()
-        self.scale = nn.Parameter(torch.ones(1, 1, d_model))
-        self.eps = eps
-
-    def forward(self, x):
-        x = (x - x.mean(dim=2, keepdim=True)) / torch.sqrt(x.var(dim=2, keepdim=True) + self.eps)
-        x = x * self.scale
-        return x
 
 class ChannelNorm(nn.Module):
     def __init__(self, channels, eps=1e-4):
@@ -63,66 +53,33 @@ class ChannelNorm(nn.Module):
         x = x * self.scale
         return x
 
-class ConvBlock(nn.Module):
-    def __init__(self, channels, head_dim=32):
+class SwinBlock(nn.Module):
+    def __init__(self, channels, head_dim=32, window_size=4, shift=0):
         super().__init__()
-        self.conv = nn.Conv2d(channels, channels, 3, 1, 1, groups=channels//head_dim)
-        self.ff = ConvFF(channels)
         self.norm = ChannelNorm(channels)
+        self.ffn = ConvFFN(channels)
+        self.attention = WindowAttention(channels, n_heads=channels//head_dim, window_size=window_size, shift=shift)
+        self.encodings = Encodings(channels)
 
-    def forward(self, x):
+    def forward(self, x, t):
+        x = self.encodings(x, t)
         res = x
         x = self.norm(x)
-        x = self.conv(x) + self.ff(x)
-        x = res + x
+        x = self.attention(x) + self.ffn(x)
+        x = x + res
         return x
 
-class ConvStack(nn.Module):
-    def __init__(self, channels, num_layers, head_dim=32):
+class SwinStack(nn.Module):
+    def __init__(self, channels, head_dim=32, window_size=4, num_blocks=2):
         super().__init__()
-        self.encodings = Encodings(channels)
-        self.layers = nn.ModuleList([ConvBlock(channels, head_dim=head_dim) for _ in range(num_layers)])
-    def forward(self, x, time):
-        for l in self.layers:
-            x = self.encodings(x, time)
-            x = l(x)
-        return x
+        self.blocks = nn.ModuleList([])
+        for i in range(num_blocks):
+            shift = window_size // 2 if i % 2 == 0 else 0
+            self.blocks.append(SwinBlock(channels, head_dim, window_size, shift))
 
-class ViTLayer(nn.Module):
-    def __init__(self, d_model, head_dim=64):
-        super().__init__()
-        self.self_attention = nn.MultiheadAttention(d_model, d_model//head_dim, batch_first=True)
-        self.cross_attention = nn.MultiheadAttention(d_model, d_model//head_dim, batch_first=True)
-        self.norm = LayerNorm(d_model)
-        self.ff = FeedForward(d_model)
-
-    def forward(self, x, keys=None):
-        res = x
-        x = self.norm(x)
-        attn_out, _ = self.self_attention(x, x, x)
-        if keys != None:
-            # Apply cross attention
-            attn_out, _ = self.self_attention(x, keys, keys)
-        x = attn_out + self.ff(x)
-        x = res + x
-        return x
-
-class ViTStack(nn.Module):
-    def __init__(self, channels, num_layers, head_dim=64):
-        super().__init__()
-        self.encodings = Encodings(channels)
-        self.layers = nn.ModuleList([ViTLayer(channels, head_dim=head_dim) for _ in range(num_layers)])
-    def forward(self, x, time, keys):
-        x = self.encodings(x, time)
-        # reshape to sequence
-        shape = x.shape
-        x = x.reshape(shape[0], shape[1], -1) # N, C, L
-        x = x.transpose(1, 2) # N, L, C
-        for l in self.layers:
-            x = l(x)
-        # reshape to image
-        x = x.transpose(1, 2) # N, C, L
-        x = x.reshape(*shape)
+    def forward(self, x, t):
+        for b in self.blocks:
+            x = b(x, t)
         return x
 
 class UNetBlock(nn.Module):
@@ -132,17 +89,16 @@ class UNetBlock(nn.Module):
         self.ch_conv = ch_conv
 
 class UNet(nn.Module):
-    def __init__(self, input_channels=3, stages=[2, 2, 2, 2], channels=[64, 128, 256, 512], stem_size=1, num_mid_layers=6):
+    def __init__(self, input_channels=3, stages=[2, 2, 2, 2], channels=[64, 128, 256, 512], stem_size=1):
         super().__init__()
         self.encoder_first = nn.Conv2d(input_channels, channels[0], stem_size, stem_size, 0)
         self.decoder_last = nn.ConvTranspose2d(channels[0], input_channels, stem_size, stem_size, 0)
-        self.mid_layers = ViTStack(channels[-1], num_mid_layers)
         self.encoder_stages = nn.ModuleList([])
         self.decoder_stages = nn.ModuleList([])
         for i, (l, c) in enumerate(zip(stages, channels)):
-            enc_stage = ConvStack(c, num_layers=l)
+            enc_stage = SwinStack(c, num_blocks=l)
             enc_ch_conv = nn.Identity() if i == len(stages)-1 else nn.Sequential(nn.Conv2d(channels[i], channels[i+1], 1, 1, 0), nn.AvgPool2d(kernel_size=2))
-            dec_stage = ConvStack(c, num_layers=l)
+            dec_stage = SwinStack(c, num_blocks=l)
             dec_ch_conv = nn.Identity() if i == len(stages)-1 else nn.Sequential(nn.Upsample(scale_factor=2) ,nn.Conv2d(channels[i+1], channels[i], 1, 1, 0))
             self.encoder_stages.append(UNetBlock(enc_stage, enc_ch_conv))
             self.decoder_stages.insert(0, UNetBlock(dec_stage, dec_ch_conv))
@@ -151,12 +107,11 @@ class UNet(nn.Module):
         x = self.encoder_first(x)
         skips = []
         for l in self.encoder_stages:
-            x = l.stage(x, time=time)
+            x = l.stage(x, time)
             skips.insert(0, x)
             x = l.ch_conv(x)
-        x = self.mid_layers(x, time=time, keys=condition)
         for i, (l, s) in enumerate(zip(self.decoder_stages, skips)):
             x = l.ch_conv(x)
-            x = l.stage(x + s, time=time)
+            x = l.stage(x + s, time)
         x = self.decoder_last(x)
         return x

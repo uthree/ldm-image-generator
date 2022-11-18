@@ -90,6 +90,8 @@ class DDPM(nn.Module):
 
         if schedule == 'linear':
             steps = list(torch.linspace(0, self.num_timesteps-1, num_steps).int().numpy())
+        elif type(schedule) == list:
+            steps = schedule
         else:
             raise f"schedule \"{schedule}\" is not implemented."
         steps_next = [0] + steps[:-1]
