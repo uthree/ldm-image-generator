@@ -141,9 +141,9 @@ class UNet(nn.Module):
         self.decoder_stages = nn.ModuleList([])
         for i, (l, c) in enumerate(zip(stages, channels)):
             enc_stage = ConvStack(c, num_layers=l)
-            enc_ch_conv = nn.Identity() if i == len(stages)-1 else nn.Conv2d(channels[i], channels[i+1], 2, 2, 0)
+            enc_ch_conv = nn.Identity() if i == len(stages)-1 else nn.Sequential(nn.Conv2d(channels[i], channels[i+1], 1, 1, 0), nn.AvgPool2d(kernel_size=2))
             dec_stage = ConvStack(c, num_layers=l)
-            dec_ch_conv = nn.Identity() if i == len(stages)-1 else nn.ConvTranspose2d(channels[i+1], channels[i], 2, 2, 0)
+            dec_ch_conv = nn.Identity() if i == len(stages)-1 else nn.Sequential(nn.Upsample(scale_factor=2) ,nn.Conv2d(channels[i+1], channels[i], 1, 1, 0))
             self.encoder_stages.append(UNetBlock(enc_stage, enc_ch_conv))
             self.decoder_stages.insert(0, UNetBlock(dec_stage, dec_ch_conv))
 
