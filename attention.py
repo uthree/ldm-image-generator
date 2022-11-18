@@ -11,6 +11,10 @@ class WindowAttention(nn.Module):
     
     # x: [N, C, H, W]
     def forward(self, x):
+        # Apply attention without window if image size is smaller than window size
+        if x.shape[2] <= self.window_size and x.shape[3] <= self.window_size:
+            return self._apply_attention_without_window(x)
+
         # Padding
         N, C, H, W = x.shape
         ws = self.window_size
@@ -69,5 +73,13 @@ class WindowAttention(nn.Module):
         x = x.transpose(1, 2) # N, C, L
         x = x.reshape(*shape)
         return x
-
+    
+    def _apply_attention_without_window(self, x):
+        shape = x.shape
+        x = x.reshape(shape[0], shape[1], -1) # N, C, L
+        x = x.transpose(1, 2) # N, L, C
+        x, _ = self.attention(x, x, x)
+        x = x.transpose(1, 2) # N, C, L
+        x = x.reshape(*shape)
+        return x
 

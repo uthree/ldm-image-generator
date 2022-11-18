@@ -6,9 +6,9 @@ from attention import WindowAttention
 class Encodings(nn.Module):
     def __init__(self, channels):
         super().__init__()
-        self.proj1 = nn.Conv2d(channels*2, channels*2, 1, 1, 0)
+        self.proj1 = nn.Conv2d(channels*2, channels*4, 1, 1, 0)
         self.act = nn.ReLU()
-        self.proj2 = nn.Conv2d(channels*2, channels*2, 1, 1, 0)
+        self.proj2 = nn.Conv2d(channels*4, channels*2, 1, 1, 0)
         self.pe = PositionalEncoding2d(channels, return_encoding_only=True)
         self.te = TimeEncoding2d(channels, return_encoding_only=True)
 
@@ -45,32 +45,31 @@ class ConvFFN(nn.Module):
 class ChannelNorm(nn.Module):
     def __init__(self, channels, eps=1e-4):
         super().__init__()
-        self.scale = nn.Parameter(torch.ones(1, channels, 1, 1))
         self.eps = eps
 
     def forward(self, x):
         x = (x - x.mean(dim=1, keepdim=True)) / torch.sqrt(x.var(dim=1, keepdim=True) + self.eps)
-        x = x * self.scale
         return x
 
 class SwinBlock(nn.Module):
-    def __init__(self, channels, head_dim=32, window_size=4, shift=0):
+    def __init__(self, channels, head_dim=32, window_size=8, shift=0):
         super().__init__()
         self.norm = ChannelNorm(channels)
+        self.conv = nn.Conv2d(channels, channels, 3, 1, 1, groups=channels//head_dim)
         self.ffn = ConvFFN(channels)
         self.attention = WindowAttention(channels, n_heads=channels//head_dim, window_size=window_size, shift=shift)
         self.encodings = Encodings(channels)
 
     def forward(self, x, t):
-        x = self.encodings(x, t)
         res = x
         x = self.norm(x)
-        x = self.attention(x) + self.ffn(x)
+        x = self.encodings(x, t)
+        x = self.attention(x) + self.ffn(x) + self.conv(x)
         x = x + res
         return x
 
 class SwinStack(nn.Module):
-    def __init__(self, channels, head_dim=32, window_size=4, num_blocks=2):
+    def __init__(self, channels, head_dim=32, window_size=8, num_blocks=2):
         super().__init__()
         self.blocks = nn.ModuleList([])
         for i in range(num_blocks):
@@ -89,7 +88,7 @@ class UNetBlock(nn.Module):
         self.ch_conv = ch_conv
 
 class UNet(nn.Module):
-    def __init__(self, input_channels=3, stages=[2, 2, 2, 2], channels=[64, 128, 256, 512], stem_size=1):
+    def __init__(self, input_channels=3, stages=[2, 2, 3, 4], channels=[64, 128, 256, 512], stem_size=1):
         super().__init__()
         self.encoder_first = nn.Conv2d(input_channels, channels[0], stem_size, stem_size, 0)
         self.decoder_last = nn.ConvTranspose2d(channels[0], input_channels, stem_size, stem_size, 0)
