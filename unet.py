@@ -1,8 +1,10 @@
 import torch
 import torch.nn as nn
 from sinusoidal import TimeEncoding2d, PositionalEncoding2d
+from modules import ReGLU, ChannelNorm
 from attention import WindowAttention
 
+# Time + Position encoding
 class Encodings(nn.Module):
     def __init__(self, channels):
         super().__init__()
@@ -19,43 +21,11 @@ class Encodings(nn.Module):
         x = x * mul + bias
         return x
 
-# FFN (ReGLU)
-class FeedForward(nn.Module):
-    def __init__(self, d_model, ffn_mul=4):
-        super().__init__()
-        self.a = nn.Linear(d_model, d_model*ffn_mul)
-        self.b = nn.Linear(d_model, d_model*ffn_mul)
-        self.act = nn.ReLU()
-        self.c = nn.Linear(d_model*ffn_mul, d_model)
-
-    def forward(self, x):
-        return self.c(self.a(x) * self.act(self.b(x)))
-
-# Conv (ReGLU)
-class ConvFFN(nn.Module):
-    def __init__(self, channels, ffn_mul=4):
-        super().__init__()
-        self.a = nn.Conv2d(channels, channels*ffn_mul, 1, 1, 0)
-        self.b = nn.Conv2d(channels, channels*ffn_mul, 1, 1, 0)
-        self.act = nn.ReLU()
-        self.c = nn.Conv2d(channels*ffn_mul, channels, 1, 1, 0)
-    def forward(self, x):
-        return self.c(self.a(x) * self.act(self.b(x)))
-
-class ChannelNorm(nn.Module):
-    def __init__(self, channels, eps=1e-4):
-        super().__init__()
-        self.eps = eps
-
-    def forward(self, x):
-        x = (x - x.mean(dim=1, keepdim=True)) / torch.sqrt(x.var(dim=1, keepdim=True) + self.eps)
-        return x
-
 class SwinBlock(nn.Module):
     def __init__(self, channels, head_dim=32, window_size=8, shift=0):
         super().__init__()
         self.norm = ChannelNorm(channels)
-        self.ffn = ConvFFN(channels)
+        self.ffn = ReGLU(channels)
         self.conv = nn.Conv2d(channels, channels, 3, 1, 1, groups=channels)
         self.attention = WindowAttention(channels, n_heads=channels//head_dim, window_size=window_size, shift=shift)
         self.encodings = Encodings(channels)
@@ -105,9 +75,12 @@ class UNet(nn.Module):
     def forward(self, x, time, condition=None):
         x = self.encoder_first(x)
         skips = []
-        for l in self.encoder_stages:
+        for i, l in enumerate(self.encoder_stages):
             x = l.stage(x, time)
-            skips.insert(0, x)
+            if i == len(self.encoder_stages)-1:
+                skips.insert(0, 0) # Insert zero if last encoder layer
+            else:
+                skips.insert(0, x) 
             x = l.ch_conv(x)
         for i, (l, s) in enumerate(zip(self.decoder_stages, skips)):
             x = l.ch_conv(x)
