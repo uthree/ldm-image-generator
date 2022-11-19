@@ -12,7 +12,7 @@ import numpy as np
 
 ddpm_path = "./ddpm.pt"
 image_size = 32
-result_dir = "./results/"
+result_dir = "./ddpm_outputs/"
 num_images = 10
 use_cpu = False
 

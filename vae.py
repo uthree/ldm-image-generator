@@ -1,7 +1,6 @@
 import torch
 import torch.nn as nn
-import torch.nn.Functional as F
-from attention import WindowAttention
+import torch.nn.functional as F
 
 class VAE(nn.Module):
     def __init__(self, encoder, decoder):
@@ -9,11 +8,11 @@ class VAE(nn.Module):
         self.encoder = encoder
         self.decoder = decoder
 
-    def caluclate_loss(self, x):
+    def calclate_loss(self, x):
         mean, logvar = self.encoder(x)
         var = torch.exp(logvar)
         loss_kl = -1 - logvar + var + mean ** 2
-        z = torch.randn_like(mean) * var + mean
+        z = torch.randn_like(mean) * torch.sqrt(var) + mean
         y = self.decoder(z)
         loss_recon = (x-y).abs()
         return loss_recon, loss_kl
@@ -22,14 +21,14 @@ class VAE(nn.Module):
     def encode(self, x, sigma=0):
         mean, logvar = self.encoder(x)
         var = torch.exp(logvar)
-        z = torch.randn_like(mean) * var * sigma + mean
+        z = torch.randn_like(mean) * torch.sqrt(var) * sigma + mean
         return z
     
     @ torch.no_grad()
     def decode(self, z):
         return self.decoder(z)
 
-def EncoderBlock(nn.Module):
+class ResBlock(nn.Module):
     def __init__(self, channels):
         super().__init__()
         self.c1 = nn.Conv2d(channels, channels, 3, 1, 1)
@@ -39,10 +38,91 @@ def EncoderBlock(nn.Module):
     def forward(self, x):
         return self.c2(self.act(self.c1(x))) + x
 
-def EncoderStack(nn.Module):
+class ResStack(nn.Module):
     def __init__(self, channels, num_layers=2):
         super().__init__()
-        self.seq = nn.Sequential(*[EncoderBlock(channels) for _ in range(num_layers)])
+        self.seq = nn.Sequential(*[ResBlock(channels) for _ in range(num_layers)])
 
     def forward(self, x):
         return self.seq(x)
+
+class Encoder(nn.Module):
+    def __init__(self, input_channels=3, latent_channels=16, channels=[32, 64, 128, 256], stages=[2, 2, 2, 2]):
+        super().__init__()
+        self.input_layer = nn.Conv2d(input_channels, channels[0], 1, 1, 0)
+        self.output_layer = nn.Conv2d(channels[-1], latent_channels*2, 1, 1, 0)
+        self.stages = nn.ModuleList([ResStack(c, l) for c, l in zip(channels, stages)])
+        self.downsamples = nn.ModuleList([])
+        for i, c in enumerate(channels):
+            if i == len(stages)-1:
+                self.downsamples.append(nn.Identity())
+            else:
+                self.downsamples.append(nn.Sequential(
+                    nn.MaxPool2d(kernel_size=2),
+                    nn.Conv2d(c, channels[i+1], 1, 1, 0)))
+
+    def forward(self, x):
+        x = self.input_layer(x)
+        for a, b in zip(stages, downsamples):
+            x = a(x)
+            x = b(x)
+        mean, logvar = torch.chunk(self.output_layer(x), 2, dim=1)
+        return mean, logvar
+
+class Decoder(nn.Module):
+    def __init__(self, output_channels=3, latent_channels=16, channels=[512, 256, 128, 64], stages=[4, 3, 2, 2], window_size=4):
+        super().__init__()
+        self.input_layer = nn.Conv2d(latent_channels, channels[0], 1, 1, 0)
+        self.output_layer = nn.Conv2d(channels[-1], output_channels, 1, 1, 0)
+        self.stages = nn.ModuleList([ResStack(c, l) for c, l in zip(channels, stages)])
+        self.upsamples = nn.ModuleList([])
+        for i, c in enumerate(channels):
+            if i == len(stages)-1:
+                self.upsamples.append(nn.Identity())
+            else:
+                self.upsamples.append(nn.ConvTranspose2d(c, channels[i+1], 2, 2, 0))
+
+    def forward(self, x):
+        x = self.input_layer(x)
+        for a, b in zip(stages, downsamples):
+            x = a(x)
+            x = b(x)
+        x = self.output_layer(x)
+        return x
+
+class Discriminator(nn.Module):
+    def __init__(self, input_channels=3, channels=[32, 64, 128, 256], stages=[2, 2, 2, 2], stem_size=2):
+        super().__init__()
+        self.input_layer = nn.Conv2d(input_channels, channels[0], stem_size, stem_size, 0)
+        self.output_layer = nn.Conv2d(channels[-1], 1, 1, 1, 0)
+        self.stages = nn.ModuleList([ResStack(c, l) for c, l in zip(channels, stages)])
+        self.downsamples = nn.ModuleList([])
+        for i, c in enumerate(channels):
+            if i == len(stages)-1:
+                self.downsamples.append(nn.Identity())
+            else:
+                self.downsamples.append(nn.Conv2d(c, channels[i+1], 2, 2, 0))
+
+    def calclate_logit_and_feature_matching(self, fake_x, real_x):
+        real_x.requires_grad = False
+        fake_x = self.input_layer(fake_x)
+        real_x = self.input_layer(real_x)
+        feat_loss = 0
+        for a, b in zip(stages, downsamples):
+            fake_x = a(fake_x)
+            real_x = a(real_x)
+            fake_x = b(fake_x)
+            fake_x = b(fake_x)
+            feat_loss += (fake_x-real_x).abs().mean()
+        logit = self.output_layer(fake_x)
+        return logit, feat_loss
+
+    def calclate_logit(self, fake_x):
+        fake_x = self.input_layer(fake_x)
+        feat_loss = 0
+        for a, b in zip(stages, downsamples):
+            fake_x = a(fake_x)
+            fake_x = b(fake_x)
+        logit = self.output_layer(fake_x)
+        return logit
+

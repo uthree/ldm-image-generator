@@ -32,7 +32,7 @@ class DDPM(nn.Module):
             self.beta_tilde.append((1-self.alpha_bar[t-1])/(1-self.alpha_bar[t]) * self.beta[t])
         self.beta_tilde = torch.Tensor(self.beta_tilde)
 
-    def caluclate_loss(self, x, condition=None):
+    def calculate_loss(self, x, condition=None):
         t = torch.randint(low=1, high=self.num_timesteps, size=(x.shape[0],))
         alpha_bar_t = torch.index_select(self.alpha_bar, 0, t).to(x.device)
         while alpha_bar_t.ndim < x.ndim:
