@@ -13,24 +13,31 @@ class WindowAttention(nn.Module):
     def forward(self, x):
         # Apply attention without window if image size is smaller than window size
         if x.shape[2] <= self.window_size and x.shape[3] <= self.window_size:
-            return self._apply_attention_without_window(x)
+            return self._apply_attention(x)
 
         # Padding
         N, C, H, W = x.shape
         ws = self.window_size
         pad_h, pad_w = ws - (H % ws), ws - (W % ws)
+        if pad_h == ws:
+            pad_h = 0
+        if pad_w == ws:
+            pad_w = 0
 
         x = torch.cat([x, torch.zeros(1, 1, pad_h, 1, device=x.device).expand(N, C, pad_h, x.shape[3])], dim=2)
         x = torch.cat([x, torch.zeros(1, 1, 1, pad_w, device=x.device).expand(N, C, x.shape[2], pad_w)], dim=3)
         
         # Generate Padding mask
-        mask = torch.zeros(1, 1, x.shape[2], x.shape[3], dtype=bool, device=x.device).expand(N, C, x.shape[2], x.shape[3])
-        mask[:, :, H:, :] = 1
-        mask[:, :, :, W:] = 1
+        with torch.no_grad():
+            mask = torch.zeros(1, 1, x.shape[2], x.shape[3], dtype=bool, device=x.device)
+            mask[:, :, H:, :] = True
+            mask[:, :, :, W:] = True
+            mask = mask.expand(N, C, x.shape[2], x.shape[3])
 
         # Shift
-        x = torch.roll(x, (self.shift, self.shift), (2, 3))
-        mask = torch.roll(x, (self.shift, self.shift), (2, 3))
+        if self.shift != 0:
+            x = torch.roll(x, (self.shift, self.shift), (2, 3))
+            mask = torch.roll(x, (self.shift, self.shift), (2, 3))
 
         # Split
         nwin_h, nwin_w = x.shape[2] // ws, x.shape[3] // ws
@@ -44,7 +51,8 @@ class WindowAttention(nn.Module):
         x = self._concat_window(x, nwin_h, nwin_w)
 
         # Unshift
-        x = torch.roll(x, (-self.shift, -self.shift), (2, 3))
+        if self.shift != 0:
+            x = torch.roll(x, (-self.shift, -self.shift), (2, 3))
 
         # Remove pad
         x = x[:, :, :H, :W]
@@ -62,23 +70,16 @@ class WindowAttention(nn.Module):
         x = torch.cat(torch.chunk(x, nwin_w, dim=2), dim=3)
         return x
     
-    def _apply_attention(self, x, mask):
+    def _apply_attention(self, x, mask=None):
         shape = x.shape
         x = x.reshape(shape[0], shape[1], -1) # N, C, L
         x = x.transpose(1, 2) # N, L, C
-        mask = mask.reshape(shape[0], shape[1], -1) # N, C, L
-        mask = mask.transpose(1, 2) # N, L, C
-        mask = mask[:, :, 0] # N, L
+        if mask != None:
+            with torch.no_grad():
+                mask = mask.reshape(shape[0], shape[1], -1) # N, C, L
+                mask = mask.transpose(1, 2) # N, L, C
+                mask = mask[:, :, 0] # N, L
         x, _ = self.attention(x, x, x, key_padding_mask=mask)
-        x = x.transpose(1, 2) # N, C, L
-        x = x.reshape(*shape)
-        return x
-    
-    def _apply_attention_without_window(self, x):
-        shape = x.shape
-        x = x.reshape(shape[0], shape[1], -1) # N, C, L
-        x = x.transpose(1, 2) # N, L, C
-        x, _ = self.attention(x, x, x)
         x = x.transpose(1, 2) # N, C, L
         x = x.reshape(*shape)
         return x

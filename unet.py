@@ -55,8 +55,8 @@ class SwinBlock(nn.Module):
     def __init__(self, channels, head_dim=32, window_size=8, shift=0):
         super().__init__()
         self.norm = ChannelNorm(channels)
-        self.conv = nn.Conv2d(channels, channels, 3, 1, 1, groups=channels//head_dim)
         self.ffn = ConvFFN(channels)
+        self.conv = nn.Conv2d(channels, channels, 3, 1, 1, groups=channels)
         self.attention = WindowAttention(channels, n_heads=channels//head_dim, window_size=window_size, shift=shift)
         self.encodings = Encodings(channels)
 
