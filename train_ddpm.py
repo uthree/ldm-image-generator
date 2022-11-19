@@ -37,10 +37,9 @@ for epoch in range(num_epoch):
         image = image.to(device)
         
         with torch.cuda.amp.autocast(enabled=use_autocast):
-            ddpm_loss = ddpm.caluclate_loss(image)
+            ddpm_loss = ddpm.calculate_loss(image)
             loss = ddpm_loss
-            loss = scaler.scale(loss)
-            loss.backward()
+        scaler.scale(loss).backward()
         scaler.step(optimizer)
     
         scaler.update()

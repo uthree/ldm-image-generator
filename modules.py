@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-import torch.nn.functinal as F
+import torch.nn.functional as F
 
 # ReGLU
 class ReGLU(nn.Module):

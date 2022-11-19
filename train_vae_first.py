@@ -12,7 +12,8 @@ batch_size = 1
 num_epoch = 3000
 learning_rate = 1e-4
 image_size = 512
-max_dataset_size = 1000
+max_dataset_size = 10000
+weight_kl = 0.2
 use_autocast = True
 
 ds = ImageDataset(sys.argv[1:], max_len=max_dataset_size, size=image_size)
@@ -45,9 +46,8 @@ for epoch in range(num_epoch):
         
         with torch.cuda.amp.autocast(enabled=use_autocast):
             recon_loss, kl_loss = vae.calclate_loss(image)
-            loss = recon_loss + kl_loss
-            loss = scaler.scale(loss)
-            loss.backward()
+            loss = recon_loss + kl_loss * weight_kl
+        scaler.scale(loss).backward()
         scaler.step(optimizer)
     
         scaler.update()

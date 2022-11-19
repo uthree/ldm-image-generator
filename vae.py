@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from modules import ChannelNorm, ReGLU
 
 class VAE(nn.Module):
     def __init__(self, encoder, decoder):
@@ -11,10 +12,10 @@ class VAE(nn.Module):
     def calclate_loss(self, x):
         mean, logvar = self.encoder(x)
         var = torch.exp(logvar)
-        loss_kl = -1 - logvar + var + mean ** 2
+        loss_kl = (-1 - logvar + var + mean ** 2).mean()
         z = torch.randn_like(mean) * torch.sqrt(var) + mean
         y = self.decoder(z)
-        loss_recon = (x-y).abs()
+        loss_recon = (x-y).abs().mean()
         return loss_recon, loss_kl
     
     @torch.no_grad()
@@ -31,12 +32,16 @@ class VAE(nn.Module):
 class ResBlock(nn.Module):
     def __init__(self, channels):
         super().__init__()
-        self.c1 = nn.Conv2d(channels, channels, 3, 1, 1)
-        self.act = nn.ReLU()
-        self.c2 = nn.Conv2d(channels, channels, 3, 1, 1)
+        self.dw_conv = nn.Conv2d(channels, channels, 7, 1, 3, groups=channels)
+        self.norm = ChannelNorm(channels)
+        self.ff = ReGLU(channels, ffn_mul=2)
 
     def forward(self, x):
-        return self.c2(self.act(self.c1(x))) + x
+        res = x
+        x = self.dw_conv(x)
+        x = self.norm(x)
+        x = self.ff(x)
+        return x + res
 
 class ResStack(nn.Module):
     def __init__(self, channels, num_layers=2):
@@ -54,7 +59,7 @@ class Encoder(nn.Module):
         self.stages = nn.ModuleList([ResStack(c, l) for c, l in zip(channels, stages)])
         self.downsamples = nn.ModuleList([])
         for i, c in enumerate(channels):
-            if i == len(stages)-1:
+            if i == len(self.stages)-1:
                 self.downsamples.append(nn.Identity())
             else:
                 self.downsamples.append(nn.Sequential(
@@ -63,7 +68,7 @@ class Encoder(nn.Module):
 
     def forward(self, x):
         x = self.input_layer(x)
-        for a, b in zip(stages, downsamples):
+        for a, b in zip(self.stages, self.downsamples):
             x = a(x)
             x = b(x)
         mean, logvar = torch.chunk(self.output_layer(x), 2, dim=1)
@@ -77,14 +82,14 @@ class Decoder(nn.Module):
         self.stages = nn.ModuleList([ResStack(c, l) for c, l in zip(channels, stages)])
         self.upsamples = nn.ModuleList([])
         for i, c in enumerate(channels):
-            if i == len(stages)-1:
+            if i == len(self.stages)-1:
                 self.upsamples.append(nn.Identity())
             else:
                 self.upsamples.append(nn.ConvTranspose2d(c, channels[i+1], 2, 2, 0))
 
     def forward(self, x):
         x = self.input_layer(x)
-        for a, b in zip(stages, downsamples):
+        for a, b in zip(self.stages, self.upsamples):
             x = a(x)
             x = b(x)
         x = self.output_layer(x)
@@ -98,7 +103,7 @@ class Discriminator(nn.Module):
         self.stages = nn.ModuleList([ResStack(c, l) for c, l in zip(channels, stages)])
         self.downsamples = nn.ModuleList([])
         for i, c in enumerate(channels):
-            if i == len(stages)-1:
+            if i == len(self.stages)-1:
                 self.downsamples.append(nn.Identity())
             else:
                 self.downsamples.append(nn.Conv2d(c, channels[i+1], 2, 2, 0))
@@ -108,7 +113,7 @@ class Discriminator(nn.Module):
         fake_x = self.input_layer(fake_x)
         real_x = self.input_layer(real_x)
         feat_loss = 0
-        for a, b in zip(stages, downsamples):
+        for a, b in zip(self.stages, self.downsamples):
             fake_x = a(fake_x)
             real_x = a(real_x)
             fake_x = b(fake_x)
@@ -120,7 +125,7 @@ class Discriminator(nn.Module):
     def calclate_logit(self, fake_x):
         fake_x = self.input_layer(fake_x)
         feat_loss = 0
-        for a, b in zip(stages, downsamples):
+        for a, b in zip(self.tages, self.downsamples):
             fake_x = a(fake_x)
             fake_x = b(fake_x)
         logit = self.output_layer(fake_x)
