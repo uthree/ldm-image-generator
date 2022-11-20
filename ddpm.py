@@ -49,7 +49,7 @@ class DDPM(nn.Module):
     
     # sample as DDIM (http://arxiv.org/abs/2010.02502)
     @torch.no_grad()
-    def sample(self, x_shape=(1, 3, 64, 64), condition=None, seed=None, num_steps=25, use_autocast=True, schedule='linear', eta=0, cfg_strength=1.0):
+    def sample(self, x_shape=(1, 3, 64, 64), condition=None, seed=None, num_steps=20, use_autocast=True, schedule='linear', eta=0, cfg_strength=1.0):
         # device
         device = self.model.parameters().__next__().device
         

@@ -75,7 +75,7 @@ class Encoder(nn.Module):
         return mean, logvar
 
 class Decoder(nn.Module):
-    def __init__(self, output_channels=3, latent_channels=16, channels=[512, 256, 128, 64], stages=[4, 3, 2, 2], window_size=4):
+    def __init__(self, output_channels=3, latent_channels=16, channels=[512, 256, 128, 64], stages=[2, 2, 2, 2]):
         super().__init__()
         self.input_layer = nn.Conv2d(latent_channels, channels[0], 1, 1, 0)
         self.output_layer = nn.Conv2d(channels[-1], output_channels, 1, 1, 0)

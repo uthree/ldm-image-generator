@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 from sinusoidal import TimeEncoding2d, PositionalEncoding2d
 from modules import ReGLU, ChannelNorm
-from attention import WindowAttention
+from attention import WindowAttention, CrossAttention
 
 # Time + Position encoding
 class Encodings(nn.Module):
@@ -27,14 +27,17 @@ class SwinBlock(nn.Module):
         self.norm = ChannelNorm(channels)
         self.ffn = ReGLU(channels)
         self.conv = nn.Conv2d(channels, channels, 3, 1, 1, groups=channels)
-        self.attention = WindowAttention(channels, n_heads=channels//head_dim, window_size=window_size, shift=shift)
+        self.self_attention = WindowAttention(channels, n_heads=channels//head_dim, window_size=window_size, shift=shift)
+        self.cross_attention = CrossAttention(channels, n_heads=channels//head_dim)
         self.encodings = Encodings(channels)
 
-    def forward(self, x, t):
+    def forward(self, x, t, c=None):
         res = x
         x = self.norm(x)
         x = self.encodings(x, t)
-        x = self.attention(x) + self.ffn(x) + self.conv(x)
+        x = self.self_attention(x) + self.ffn(x) + self.conv(x)
+        if c != None:
+            x = x + self.cross_attention(x, c)
         x = x + res
         return x
 
@@ -46,9 +49,9 @@ class SwinStack(nn.Module):
             shift = window_size // 2 if i % 2 == 0 else 0
             self.blocks.append(SwinBlock(channels, head_dim, window_size, shift))
 
-    def forward(self, x, t):
+    def forward(self, x, t, c=None):
         for b in self.blocks:
-            x = b(x, t)
+            x = b(x, t, c)
         return x
 
 class UNetBlock(nn.Module):

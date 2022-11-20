@@ -11,7 +11,7 @@ batch_size = 16
 num_epoch = 3000
 learning_rate = 1e-4
 image_size = 32
-max_dataset_size = 10000
+max_dataset_size = 1000
 use_autocast = True
 
 ds = ImageDataset(sys.argv[1:], max_len=max_dataset_size, size=image_size)
@@ -21,7 +21,7 @@ if os.path.exists(ddpm_path):
     ddpm.load_state_dict(torch.load(ddpm_path))
     print("DDPM Model Loaded.")
 
-ydevice = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(f"device: {device}")
 ddpm.to(device)
 optimizer = optim.RAdam(ddpm.parameters(), lr=learning_rate)

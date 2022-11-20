@@ -84,3 +84,17 @@ class WindowAttention(nn.Module):
         x = x.reshape(*shape)
         return x
 
+class CrossAttention(nn.Module):
+    def __init__(self, channels=512, n_heads=8):
+        super().__init__()
+        self.attention = nn.MultiheadAttention(channels, n_head, batch_first=True)
+    
+    def forward(self, x, c):
+        shape = x.shape
+        x = x.reshape(shape[0], shape[1], -1) # N, C, L
+        x = x.transpose(1, 2) # N, L, C
+        x, _ = self.attention(x, c, c)
+        x = x.transpose(1, 2) # N, C, L
+        x = x.reshape(*shape)
+
+
