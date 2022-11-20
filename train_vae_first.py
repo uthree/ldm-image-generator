@@ -14,17 +14,17 @@ encoder_path = "./vae_encoder.pt"
 decoder_path = "./vae_decoder.pt"
 discriminator_path = "./vae_discriminator.pt"
 result_dir = "./vae_result/"
-batch_size = 4
+batch_size = 2
 num_epoch = 3000
 learning_rate = 1e-4
 image_size = 512
 crop_size = (192, 192)
 num_crop_per_batch = 2
-max_dataset_size = 10000
+max_dataset_size = 20000
 weight_kl = 1.0
-weight_adv = 1.0
-weight_recon = 5.0
-weight_feat = 1.0
+weight_adv = 2.0
+weight_recon = 3.0
+weight_feat = 5.0
 use_autocast = True
 
 ds = ImageDataset(sys.argv[1:], max_len=max_dataset_size, size=image_size)

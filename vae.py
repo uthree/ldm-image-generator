@@ -2,7 +2,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from modules import ChannelNorm, ReGLU
-from attention import WindowAttention
 from sinusoidal import PositionalEncoding2d
 
 class VAE(nn.Module):
@@ -32,17 +31,16 @@ class VAE(nn.Module):
         return self.decoder(z)
 
 class ResBlock(nn.Module):
-    def __init__(self, channels):
+    def __init__(self, channels, window_size=4, shift=0):
         super().__init__()
-        self.dw_conv = nn.Conv2d(channels, channels, 3, 1, 1, groups=channels//32)
+        self.conv = nn.Conv2d(channels, channels, 5, 1, 2, groups=channels)
         self.norm = ChannelNorm(channels)
-        self.ff = ReGLU(channels, ffn_mul=1)
+        self.ffn = ReGLU(channels, ffn_mul=4)
 
     def forward(self, x):
         res = x
-        x = self.dw_conv(x)
         x = self.norm(x)
-        x = self.ff(x)
+        x = self.conv(x) + self.ffn(x)
         return x + res
 
 class ResStack(nn.Module):
@@ -54,7 +52,7 @@ class ResStack(nn.Module):
         return self.seq(x)
 
 class Encoder(nn.Module):
-    def __init__(self, input_channels=3, latent_channels=4, channels=[64, 128, 256, 512], stages=[2, 2, 2, 2]):
+    def __init__(self, input_channels=3, latent_channels=8, channels=[64, 128, 256, 512], stages=[2, 2, 2, 2]):
         super().__init__()
         self.input_layer = nn.Conv2d(input_channels, channels[0], 1, 1, 0)
         self.output_layer = nn.Conv2d(channels[-1], latent_channels*2, 1, 1, 0)
@@ -77,7 +75,7 @@ class Encoder(nn.Module):
         return mean, logvar
 
 class Decoder(nn.Module):
-    def __init__(self, output_channels=3, latent_channels=4, channels=[512, 256, 128, 64], stages=[2, 2, 2, 2]):
+    def __init__(self, output_channels=3, latent_channels=8, channels=[512, 256, 128, 64], stages=[2, 2, 2, 2]):
         super().__init__()
         self.input_layer = nn.Conv2d(latent_channels, channels[0], 1, 1, 0)
         self.output_layer = nn.Conv2d(channels[-1], output_channels, 1, 1, 0)
