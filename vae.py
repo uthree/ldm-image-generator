@@ -31,17 +31,14 @@ class VAE(nn.Module):
         return self.decoder(z)
 
 class ResBlock(nn.Module):
-    def __init__(self, channels, window_size=4, shift=0):
+    def __init__(self, channels):
         super().__init__()
-        self.conv = nn.Conv2d(channels, channels, 5, 1, 2, groups=channels)
-        self.norm = ChannelNorm(channels)
-        self.ffn = ReGLU(channels, ffn_mul=4)
+        self.c1 = nn.Conv2d(channels, channels, 3, 1, 1)
+        self.act = nn.ReLU()
+        self.c2 = nn.Conv2d(channels, channels, 3, 1, 1)
 
     def forward(self, x):
-        res = x
-        x = self.norm(x)
-        x = self.conv(x) + self.ffn(x)
-        return x + res
+        return self.c2(self.act(self.c1(x))) + x
 
 class ResStack(nn.Module):
     def __init__(self, channels, num_layers=2):
@@ -52,7 +49,7 @@ class ResStack(nn.Module):
         return self.seq(x)
 
 class Encoder(nn.Module):
-    def __init__(self, input_channels=3, latent_channels=8, channels=[64, 128, 256, 512], stages=[2, 2, 2, 2]):
+    def __init__(self, input_channels=3, latent_channels=4, channels=[64, 128, 256, 512], stages=[2, 2, 2, 2]):
         super().__init__()
         self.input_layer = nn.Conv2d(input_channels, channels[0], 1, 1, 0)
         self.output_layer = nn.Conv2d(channels[-1], latent_channels*2, 1, 1, 0)
@@ -75,7 +72,7 @@ class Encoder(nn.Module):
         return mean, logvar
 
 class Decoder(nn.Module):
-    def __init__(self, output_channels=3, latent_channels=8, channels=[512, 256, 128, 64], stages=[2, 2, 2, 2]):
+    def __init__(self, output_channels=3, latent_channels=4, channels=[512, 256, 128, 64], stages=[2, 2, 2, 2]):
         super().__init__()
         self.input_layer = nn.Conv2d(latent_channels, channels[0], 1, 1, 0)
         self.output_layer = nn.Conv2d(channels[-1], output_channels, 1, 1, 0)
@@ -96,7 +93,7 @@ class Decoder(nn.Module):
         return x
 
 class Discriminator(nn.Module):
-    def __init__(self, input_channels=3, channels=[32, 64, 128, 256], stages=[2, 2, 2, 2], stem_size=1):
+    def __init__(self, input_channels=3, channels=[32, 48, 48, 96, 128], stages=[2, 2, 2, 2, 2], stem_size=1):
         super().__init__()
         self.input_layer = nn.Conv2d(input_channels, channels[0], stem_size, stem_size, 0)
         self.output_layer = nn.Conv2d(channels[-1], 1, 1, 1, 0)
