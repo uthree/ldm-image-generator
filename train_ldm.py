@@ -13,7 +13,7 @@ batch_size = 8
 num_epoch = 3000
 learning_rate = 1e-4
 image_size = 512
-max_dataset_size = 1000
+max_dataset_size = 3000
 use_autocast = True
 
 ddpm = DDPM()

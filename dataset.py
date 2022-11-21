@@ -163,7 +163,8 @@ class LatentImageDataset(torch.utils.data.Dataset):
             img = torch.tensor(img).to(self.device)
             img = img.unsqueeze(0)
             # encode
-            z, _ = self.encoder(img)
+            with torch.no_grad():
+                z, _ = self.encoder(img)
             torch.save(z, path)
             del img
             del empty
