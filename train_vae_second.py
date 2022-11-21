@@ -22,7 +22,7 @@ crop_size = (192, 192)
 num_crop_per_batch = 1
 max_dataset_size = 10000
 weight_recon = 1.0
-weight_feat = 1.0
+weight_feat = 10.0
 weight_adv = 1.0
 use_autocast = True
 
@@ -83,9 +83,9 @@ for epoch in range(num_epoch):
             optimizer_d.zero_grad()
             fake = fake.detach()
             with torch.cuda.amp.autocast(enabled=use_autocast):
-                logit_fake = discriminator.calclate_logit(fake).mean()
-                logit_real = discriminator.calclate_logit(image).mean()
-                loss_d = F.relu(-logit_real) + F.relu(logit_fake)
+                logit_fake = discriminator.calclate_logit(fake)
+                logit_real = discriminator.calclate_logit(image)
+                loss_d = F.relu(-logit_real).mean() + F.relu(logit_fake).mean()
             scaler.scale(loss_d).backward()
             torch.nn.utils.clip_grad_norm_(discriminator.parameters(), 1, norm_type=2.0)
             scaler.step(optimizer_d)

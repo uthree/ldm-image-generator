@@ -33,12 +33,13 @@ class VAE(nn.Module):
 class ResBlock(nn.Module):
     def __init__(self, channels):
         super().__init__()
+        self.norm = ChannelNorm(channels)
         self.c1 = nn.Conv2d(channels, channels, 3, 1, 1)
         self.act = nn.ReLU()
         self.c2 = nn.Conv2d(channels, channels, 3, 1, 1)
 
     def forward(self, x):
-        return self.c2(self.act(self.c1(x))) + x
+        return self.c2(self.act(self.c1(self.norm(x)))) + x
 
 class ResStack(nn.Module):
     def __init__(self, channels, num_layers=2):
@@ -93,7 +94,7 @@ class Decoder(nn.Module):
         return x
 
 class Discriminator(nn.Module):
-    def __init__(self, input_channels=3, channels=[32, 48, 48, 96, 128], stages=[2, 2, 2, 2, 2], stem_size=1):
+    def __init__(self, input_channels=3, channels=[32, 48, 48, 96], stages=[2, 2, 2, 2], stem_size=1):
         super().__init__()
         self.input_layer = nn.Conv2d(input_channels, channels[0], stem_size, stem_size, 0)
         self.output_layer = nn.Conv2d(channels[-1], 1, 1, 1, 0)
