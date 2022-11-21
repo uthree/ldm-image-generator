@@ -96,7 +96,7 @@ class ImageDataset(torch.utils.data.Dataset):
         return os.listdir(self.cache_dir).__len__()
 
 class LatentImageDataset(torch.utils.data.Dataset):
-    def __init__(self, source_dir_pathes=[], cache_dir="./dataset_cache/", size=512, max_len=-1, encoder=torch.nn.Identity(), device=torch.device('cpu')):
+    def __init__(self, source_dir_pathes=[], cache_dir="./dataset_cache/", size=512, max_len=-1, encoder=torch.nn.Identity(), device=torch.device('cpu'), n_workers=1):
         super().__init__()
         self.image_path_list = []
         print("Getting paths")
@@ -108,6 +108,7 @@ class LatentImageDataset(torch.utils.data.Dataset):
         self.max_len = max_len
         self.encoder = encoder
         self.device = device
+        self.n_workers = n_workers
         if not os.path.exists(cache_dir):
             os.mkdir(cache_dir)
         self.set_size(size)
@@ -152,20 +153,22 @@ class LatentImageDataset(torch.utils.data.Dataset):
             # concatenate path
             path = os.path.join(self.cache_dir, str(i) + ".pt")
             # to numpy
+            img = img.convert("RGB")
             img = np.array(img)
             # normalize
             img = img / 127.5 - 1.0
             img = np.transpose(img, (2, 0, 1))
             img = img.astype(np.float32)
             # Convert to torch.tensor
-            img = torch.tensor(img)
+            img = torch.tensor(img).to(self.device)
+            img = img.unsqueeze(0)
             # encode
             z, _ = self.encoder(img)
             torch.save(z, path)
             del img
             del empty
 
-        _ = joblib.Parallel(n_jobs=-1)(joblib.delayed(fn)(i) for i in tqdm(range(len(self.image_path_list))))
+        _ = joblib.Parallel(n_jobs=self.n_workers)(joblib.delayed(fn)(i) for i in tqdm(range(len(self.image_path_list))))
         self.encoder.to(torch.device('cpu'))
         print("Resize and encode complete!")
 
@@ -179,7 +182,7 @@ class LatentImageDataset(torch.utils.data.Dataset):
             img_path = os.path.join(self.cache_dir,"0.pt")
             img = torch.load(img_path)
             
-        return img
+        return img[0]
 
     def __len__(self):
         return os.listdir(self.cache_dir).__len__()

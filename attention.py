@@ -87,7 +87,7 @@ class WindowAttention(nn.Module):
 class CrossAttention(nn.Module):
     def __init__(self, channels=512, n_heads=8):
         super().__init__()
-        self.attention = nn.MultiheadAttention(channels, n_head, batch_first=True)
+        self.attention = nn.MultiheadAttention(channels, n_heads, batch_first=True)
     
     def forward(self, x, c):
         shape = x.shape
