@@ -22,7 +22,7 @@ crop_size = (192, 192)
 num_crop_per_batch = 1
 max_dataset_size = 10000
 weight_recon = 1.0
-weight_feat = 10.0
+weight_feat = 1.0
 weight_adv = 1.0
 use_autocast = True
 
