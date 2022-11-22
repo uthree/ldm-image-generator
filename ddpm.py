@@ -49,7 +49,7 @@ class DDPM(nn.Module):
     
     # sample as DDIM (http://arxiv.org/abs/2010.02502)
     @torch.no_grad()
-    def sample(self, x_shape=(1, 3, 64, 64), condition=None, seed=None, num_steps=20, use_autocast=True, schedule='linear', eta=0, cfg_strength=1.0):
+    def sample(self, x_shape=(1, 3, 64, 64), condition=None, seed=None, num_steps=20, use_autocast=True, schedule='linear', eta=0):
         # device
         device = self.model.parameters().__next__().device
         
@@ -76,8 +76,6 @@ class DDPM(nn.Module):
             for t, t_next in zip(reversed(steps), reversed(steps_next)):
                 t_tensor = torch.full((x_shape[0],), t, device=device)
                 e_theta = self.model(x=x, time=t_tensor, condition=None)
-                e_theta_c = self.model(x=x, time=t_tensor, condition=condition) if condition != None else 0
-                e_theta = (1 + cfg_strength) * e_theta_c - cfg_strength * e_theta
 
                 e = torch.randn(*x_shape, device=device)
                 sigma = eta * torch.sqrt((1 - alpha[t_next])/(1 - alpha[t])) * torch.sqrt(1 - alpha[t] / alpha[t_next])

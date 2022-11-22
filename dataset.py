@@ -182,7 +182,6 @@ class LatentImageDataset(torch.utils.data.Dataset):
             print("Skipped error")
             img_path = os.path.join(self.cache_dir,"0.pt")
             img = torch.load(img_path)
-            
         return img[0]
 
     def __len__(self):

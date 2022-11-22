@@ -12,7 +12,7 @@ vae_decoder_path = "vae_decoder.pt"
 image_size = 512
 latent_space_downscale_ratio = 8
 result_dir = "./ddpm_outputs/"
-num_images = 10
+num_images = 30
 use_cpu = False
 
 ddpm = DDPM()
@@ -41,7 +41,7 @@ if not os.path.exists(result_dir):
 image_size = image_size // latent_space_downscale_ratio
 
 for i in range(num_images):
-    img = ddpm.sample((1, 4, image_size, image_size), seed=i)
+    img = ddpm.sample((1, 4, image_size, image_size), seed=i, num_steps=20)
     with torch.no_grad():
         img = decoder(img)
     img = torch.clamp(img, -1, 1)

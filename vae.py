@@ -20,7 +20,7 @@ class VAE(nn.Module):
         return loss_recon, loss_kl, y
     
     @torch.no_grad()
-    def encode(self, x, sigma=0):
+    def encode(self, x, sigma=1):
         mean, logvar = self.encoder(x)
         var = torch.exp(logvar)
         z = torch.randn_like(mean) * var * sigma + mean
