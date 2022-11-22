@@ -1,8 +1,6 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from modules import ChannelNorm, ReGLU
-from sinusoidal import PositionalEncoding2d
 
 class VAE(nn.Module):
     def __init__(self, encoder, decoder):
@@ -33,13 +31,12 @@ class VAE(nn.Module):
 class ResBlock(nn.Module):
     def __init__(self, channels):
         super().__init__()
-        self.norm = ChannelNorm(channels)
         self.c1 = nn.Conv2d(channels, channels, 3, 1, 1)
-        self.act = nn.ReLU()
+        self.act = nn.LeakyReLU(0.2)
         self.c2 = nn.Conv2d(channels, channels, 3, 1, 1)
 
     def forward(self, x):
-        return self.c2(self.act(self.c1(self.norm(x)))) + x
+        return self.c2(self.act(self.c1(x))) + x
 
 class ResStack(nn.Module):
     def __init__(self, channels, num_layers=2):

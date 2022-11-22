@@ -12,7 +12,7 @@ vae_encoder_path = "./vae_encoder.pt"
 batch_size = 8
 num_epoch = 3000
 learning_rate = 1e-4
-image_size = 512
+image_size = 256
 max_dataset_size = 10000
 use_autocast = True
 

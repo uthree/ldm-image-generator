@@ -16,12 +16,12 @@ result_dir = "./vae_result/"
 batch_size = 8
 num_epoch = 3000
 learning_rate = 1e-4
-image_size = 512
+image_size = 256
 crop_size = (192, 192)
 num_crop_per_batch = 1
 max_dataset_size = 10000
 weight_kl = 1.0
-weight_recon = 10.0
+weight_recon = 5.0
 use_autocast = True
 
 ds = ImageDataset(sys.argv[1:], max_len=max_dataset_size, size=image_size)
