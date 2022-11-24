@@ -1,4 +1,4 @@
-arom dataset import ImageDataset
+from dataset import ImageDataset
 from vae import VAE, Encoder, Decoder, Discriminator
 import torch.nn.functional as F
 import torchvision.transforms as T
