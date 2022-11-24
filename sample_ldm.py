@@ -9,11 +9,11 @@ import numpy as np
 
 ddpm_path = "./ddpm.pt"
 vae_decoder_path = "vae_decoder.pt"
-image_size = 256
+image_size = 512
 latent_space_downscale_ratio = 8
 result_dir = "./ddpm_outputs/"
 num_images = 30
-use_cpu = False
+use_cpu = True
 
 ddpm = DDPM()
 decoder = Decoder()
