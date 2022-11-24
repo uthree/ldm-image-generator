@@ -21,8 +21,8 @@ image_size = 256
 crop_size = (192, 192)
 num_crop_per_batch = 1
 max_dataset_size = 10000
-weight_recon = 10.0
-weight_feat = 5.0
+weight_recon = 5.0
+weight_feat = 1.0
 weight_adv = 1.0
 use_autocast = True
 
@@ -74,7 +74,7 @@ for epoch in range(num_epoch):
                 fake = vae.decoder.forward(z)
                 loss_g_recon = (fake-image).abs().mean()
                 logit, loss_g_feat = discriminator.calclate_logit_and_feature_matching(fake, image)
-                loss_g_adv = (0.5-logit).mean()
+                loss_g_adv = (-logit).mean()
                 loss_g = loss_g_recon * weight_recon + loss_g_feat * weight_feat + loss_g_adv * weight_adv
             scaler.scale(loss_g).backward()
             torch.nn.utils.clip_grad_norm_(vae.decoder.parameters(), 1, norm_type=2.0)
@@ -86,7 +86,7 @@ for epoch in range(num_epoch):
             with torch.cuda.amp.autocast(enabled=use_autocast):
                 logit_fake = discriminator.calclate_logit(fake)
                 logit_real = discriminator.calclate_logit(image)
-                loss_d = F.relu(0.5-logit_real).mean() + F.relu(0.5+logit_fake).mean()
+                loss_d = F.relu(1-logit_real).mean() + F.relu(1+logit_fake).mean()
             scaler.scale(loss_d).backward()
             torch.nn.utils.clip_grad_norm_(discriminator.parameters(), 1, norm_type=2.0)
             scaler.step(optimizer_d)

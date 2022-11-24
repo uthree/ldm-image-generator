@@ -9,10 +9,10 @@ import torch.optim as optim
 
 ddpm_path = "./ddpm.pt"
 vae_encoder_path = "./vae_encoder.pt"
-batch_size = 8
+batch_size = 2
 num_epoch = 3000
 learning_rate = 1e-4
-image_size = 256
+image_size = 512
 max_dataset_size = 10000
 use_autocast = True
 
