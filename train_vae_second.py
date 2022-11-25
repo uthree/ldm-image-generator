@@ -17,12 +17,11 @@ discriminator_path = "./vae_discriminator.pt"
 result_dir = "./vae_result/"
 batch_size = 8
 num_epoch = 3000
-learning_rate = 1e-4
 image_size = 256
 crop_size = (192, 192)
 num_crop_per_batch = 1
 max_dataset_size = 10000
-weight_recon = 5.0
+weight_recon = 1.0
 weight_feat = 1.0
 weight_adv = 1.0
 use_autocast = True
@@ -53,8 +52,8 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(f"device: {device}")
 vae.to(device)
 discriminator.to(device)
-optimizer_vae = Adafactor(vae.parameters(), lr=learning_rate)
-optimizer_d = Adafactor(discriminator.parameters(), lr=learning_rate)
+optimizer_vae = Adafactor(vae.parameters())
+optimizer_d = Adafactor(discriminator.parameters())
 scaler = torch.cuda.amp.GradScaler(enabled=use_autocast)
 dl = torch.utils.data.DataLoader(ds, batch_size=batch_size, shuffle=True)
 

@@ -15,9 +15,8 @@ encoder_path = "./vae_encoder.pt"
 decoder_path = "./vae_decoder.pt"
 discriminator_path = "./discriminator.pt"
 result_dir = "./vae_result/"
-batch_size = 4
+aatch_size = 6
 num_epoch = 3000
-learning_rate = 1e-4
 image_size = 512
 crop_size = (192, 192)
 num_crop_per_batch = 1
@@ -54,9 +53,9 @@ print(f"device: {device}")
 vae.to(device)
 discriminator.to(device)
 
-optimizer_vae = Adafactor(vae.parameters(), lr=learning_rate)
+optimizer_vae = Adafactor(vae.parameters())
 scaler = torch.cuda.amp.GradScaler(enabled=use_autocast)
-optimizer_d = Adafactor(discriminator.parameters(), lr=learning_rate)
+optimizer_d = Adafactor(discriminator.parameters())
 dl = torch.utils.data.DataLoader(ds, batch_size=batch_size, shuffle=True)
 for epoch in range(num_epoch):
     bar = tqdm(total=len(ds))
