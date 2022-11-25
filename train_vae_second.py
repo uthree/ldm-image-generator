@@ -9,6 +9,7 @@ import torch
 import torch.optim as optim
 from PIL import Image
 import numpy as np
+from transformers import Adafactor
 
 encoder_path = "./vae_encoder.pt"
 decoder_path = "./vae_decoder.pt"
@@ -52,8 +53,8 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(f"device: {device}")
 vae.to(device)
 discriminator.to(device)
-optimizer_vae = optim.RAdam(vae.parameters(), lr=learning_rate)
-optimizer_d = optim.RAdam(discriminator.parameters(), lr=learning_rate)
+optimizer_vae = Adafactor(vae.parameters(), lr=learning_rate)
+optimizer_d = Adafactor(discriminator.parameters(), lr=learning_rate)
 scaler = torch.cuda.amp.GradScaler(enabled=use_autocast)
 dl = torch.utils.data.DataLoader(ds, batch_size=batch_size, shuffle=True)
 

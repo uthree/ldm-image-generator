@@ -5,14 +5,14 @@ import sys
 import os
 from tqdm import tqdm
 import torch
-import torch.optim as optim
+from transformers import Adafactor
 
 ddpm_path = "./ddpm.pt"
 vae_encoder_path = "./vae_encoder.pt"
-batch_size = 2
+batch_size = 20
 num_epoch = 3000
 learning_rate = 1e-4
-image_size = 512
+image_size = 256
 max_dataset_size = 10000
 use_autocast = True
 
@@ -34,7 +34,7 @@ ds = LatentImageDataset(sys.argv[1:], max_len=max_dataset_size, size=image_size,
 del encoder
 
 ddpm.to(device)
-optimizer = optim.RAdam(ddpm.parameters(), lr=learning_rate)
+optimizer = Adafactor(ddpm.parameters())
 scaler = torch.cuda.amp.GradScaler(enabled=use_autocast)
 
 dl = torch.utils.data.DataLoader(ds, batch_size=batch_size, shuffle=True)

@@ -7,6 +7,7 @@ import os
 from tqdm import tqdm
 import torch
 import torch.optim as optim
+from transformers import Adafactor
 from PIL import Image
 import numpy as np
 
@@ -21,8 +22,8 @@ image_size = 512
 crop_size = (192, 192)
 num_crop_per_batch = 1
 max_dataset_size = 10000
-weight_kl = 1.0
-weight_recon = 1.0
+weight_kl = 5.0
+weight_recon = 10.0
 weight_adv = 1.0
 use_autocast = True
 
@@ -41,8 +42,9 @@ if os.path.exists(decoder_path):
     print("Decoder Model Loaded.")
 
 if os.path.exists(discriminator_path):
-    discriminator.load_state_disct(torch.load(discriminator_path))
-
+    discriminator.load_state_dict(torch.load(discriminator_path))
+    print("Discriminator Model Loaded.")
+    
 if not os.path.exists(result_dir):
     os.mkdir(result_dir)
 
@@ -52,9 +54,9 @@ print(f"device: {device}")
 vae.to(device)
 discriminator.to(device)
 
-optimizer_vae = optim.RAdam(vae.parameters(), lr=learning_rate)
+optimizer_vae = Adafactor(vae.parameters(), lr=learning_rate)
 scaler = torch.cuda.amp.GradScaler(enabled=use_autocast)
-optimizer_d = optim.RAdam(discriminator.parameters(), lr=learning_rate)
+optimizer_d = Adafactor(discriminator.parameters(), lr=learning_rate)
 dl = torch.utils.data.DataLoader(ds, batch_size=batch_size, shuffle=True)
 for epoch in range(num_epoch):
     bar = tqdm(total=len(ds))
@@ -70,7 +72,7 @@ for epoch in range(num_epoch):
         
             with torch.cuda.amp.autocast(enabled=use_autocast):
                 recon_loss, kl_loss, y = vae.calclate_loss(image)
-                adv_loss = (-discriminator.calclate_logit(y)).mean()
+                adv_loss = F.relu(-discriminator.calclate_logit(y)).mean()
                 loss = recon_loss * weight_recon + kl_loss * weight_kl + adv_loss * weight_adv
 
             scaler.scale(loss).backward()
@@ -93,6 +95,7 @@ for epoch in range(num_epoch):
         if batch % 100 == 0:
             torch.save(encoder.state_dict(), encoder_path)
             torch.save(decoder.state_dict(), decoder_path)
+            torch.save(discriminator.state_dict(), discriminator_path)
             img = torch.clamp(y[0].detach(), -1, 1)
 
             # Save Reconstructedd image
