@@ -69,12 +69,32 @@ class Encoder(nn.Module):
         mean, logvar = torch.chunk(self.output_layer(x), 2, dim=1)
         return mean, logvar
 
+class DecoderBlock(nn.Module):
+    def __init__(self, channels):
+        super().__init__()
+        self.c1 = nn.Conv2d(channels, channels, 3, 1, 1)
+        self.act = nn.LeakyReLU(0.2)
+        self.c2 = nn.Conv2d(channels, channels, 3, 1, 1)
+
+    def forward(self, x):
+        return self.c2(self.act(self.c1(x)))
+
+class DecoderStack(nn.Module):
+    def __init__(self, channels, num_layers, output_channels=3):
+        super().__init__()
+        self.layers = nn.Sequential(*[DecoderBlock(channels) for _ in range(num_layers)])
+        self.to_rgb = nn.Conv2d(channels, output_channels, 1, 1, 0)
+
+    def forward(self, x):
+        x = self.layers(x)
+        return x, self.to_rgb(x)
+
 class Decoder(nn.Module):
     def __init__(self, output_channels=3, latent_channels=4, channels=[512, 256, 128, 64], stages=[2, 2, 2, 2]):
         super().__init__()
         self.input_layer = nn.Conv2d(latent_channels, channels[0], 1, 1, 0)
         self.output_layer = nn.Conv2d(channels[-1], output_channels, 1, 1, 0)
-        self.stages = nn.ModuleList([ResStack(c, l) for c, l in zip(channels, stages)])
+        self.stages = nn.ModuleList([DecoderStack(c, l, output_channels=output_channels) for c, l in zip(channels, stages)])
         self.upsamples = nn.ModuleList([])
         for i, c in enumerate(channels):
             if i == 0:
@@ -83,12 +103,16 @@ class Decoder(nn.Module):
                 self.upsamples.append(nn.ConvTranspose2d(channels[i-1], c, 2, 2, 0))
 
     def forward(self, x):
+        rgb_out = None
         x = self.input_layer(x)
         for a, b in zip(self.upsamples, self.stages):
             x = a(x)
-            x = b(x)
-        x = self.output_layer(x)
-        return x
+            x, rgb = b(x)
+            if rgb_out == None:
+                rgb_out = rgb
+            else:
+                rgb_out = F.interpolate(rgb_out, scale_factor=2) + rgb
+        return rgb_out
 
 class Discriminator(nn.Module):
     def __init__(self, input_channels=3, channels=[32, 48, 48, 96], stages=[2, 2, 2, 2], stem_size=1):
