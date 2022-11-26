@@ -22,8 +22,8 @@ crop_size = (192, 192)
 num_crop_per_batch = 1
 max_dataset_size = 10000
 weight_recon = 10.0
-weight_feat = 1.0
-weight_adv = 1.0
+weight_feat = 0.2
+weight_adv = 0.2
 use_autocast = True
 
 ds = ImageDataset(sys.argv[1:], max_len=max_dataset_size, size=image_size)

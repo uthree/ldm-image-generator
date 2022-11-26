@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from modules import ChannelNorm
 
 class VAE(nn.Module):
     def __init__(self, encoder, decoder):
@@ -72,12 +73,20 @@ class Encoder(nn.Module):
 class DecoderBlock(nn.Module):
     def __init__(self, channels):
         super().__init__()
-        self.c1 = nn.Conv2d(channels, channels, 3, 1, 1)
+        self.c1 = nn.Conv2d(channels, channels, 7, 1, 3)
+        self.norm = ChannelNorm(channels)
+        self.c2  = nn.Conv2d(channels, channels, 1, 1, 0)
         self.act = nn.LeakyReLU(0.2)
-        self.c2 = nn.Conv2d(channels, channels, 3, 1, 1)
+        self.c3 = nn.Conv2d(channels, channels, 1, 1, 0)
 
     def forward(self, x):
-        return self.c2(self.act(self.c1(x)))
+        res = x
+        x = self.c1(x)
+        x = self.norm(x)
+        x = self.c2(x)
+        x = self.act(x)
+        x = self.c3(x)
+        return x + res
 
 class DecoderStack(nn.Module):
     def __init__(self, channels, num_layers, output_channels=3):
