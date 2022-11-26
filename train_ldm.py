@@ -9,11 +9,11 @@ from transformers import Adafactor
 
 ddpm_path = "./ddpm.pt"
 vae_encoder_path = "./vae_encoder.pt"
-batch_size = 20
+batch_size = 16
 num_epoch = 3000
 learning_rate = 1e-4
-image_size = 256
-max_dataset_size = 10000
+image_size = 512
+max_dataset_size = 20000
 use_autocast = True
 
 ddpm = DDPM()

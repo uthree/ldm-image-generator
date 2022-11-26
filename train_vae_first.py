@@ -13,7 +13,7 @@ import numpy as np
 
 encoder_path = "./vae_encoder.pt"
 decoder_path = "./vae_decoder.pt"
-discriminator_path = "./discriminator.pt"
+discriminator_path = "./vae_discriminator.pt"
 result_dir = "./vae_result/"
 batch_size = 6
 num_epoch = 3000
@@ -22,7 +22,7 @@ crop_size = (192, 192)
 num_crop_per_batch = 1
 max_dataset_size = 10000
 weight_kl = 1.0
-weight_recon = 5.0
+weight_recon = 10.0
 weight_adv = 1.0
 use_autocast = True
 

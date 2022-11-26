@@ -118,35 +118,38 @@ class Discriminator(nn.Module):
     def __init__(self, input_channels=3, channels=[32, 48, 48, 96], stages=[2, 2, 2, 2], stem_size=1):
         super().__init__()
         self.input_layer = nn.Conv2d(input_channels, channels[0], stem_size, stem_size, 0)
-        self.output_layer = nn.Conv2d(channels[-1], 1, 1, 1, 0)
         self.stages = nn.ModuleList([ResStack(c, l) for c, l in zip(channels, stages)])
+        self.early_exits = nn.ModuleList([])
         self.downsamples = nn.ModuleList([])
         for i, c in enumerate(channels):
             if i == len(self.stages)-1:
                 self.downsamples.append(nn.Identity())
             else:
                 self.downsamples.append(nn.Conv2d(c, channels[i+1], 2, 2, 0))
+            self.early_exits.append(nn.Conv2d(c, 1, 1, 1, 0))
 
     def calclate_logit_and_feature_matching(self, fake_x, real_x):
         real_x.requires_grad = False
         fake_x = self.input_layer(fake_x)
         real_x = self.input_layer(real_x)
+        logit = 0
         feat_loss = 0
-        for a, b in zip(self.stages, self.downsamples):
+        for a, b, c in zip(self.stages, self.downsamples, self.early_exits):
             fake_x = a(fake_x)
             real_x = a(real_x)
             feat_loss += (fake_x-real_x).abs().mean()
+            logit = logit + c(fake_x).mean()
             fake_x = b(fake_x)
             real_x = b(real_x)
-        logit = self.output_layer(fake_x)
         return logit, feat_loss
 
     def calclate_logit(self, fake_x):
         fake_x = self.input_layer(fake_x)
         feat_loss = 0
-        for a, b in zip(self.stages, self.downsamples):
+        logit = 0
+        for a, b, c in zip(self.stages, self.downsamples, self.early_exits):
             fake_x = a(fake_x)
+            logit = logit + c(fake_x).mean()
             fake_x = b(fake_x)
-        logit = self.output_layer(fake_x)
         return logit
 
