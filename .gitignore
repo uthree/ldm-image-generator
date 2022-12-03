@@ -128,6 +128,7 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
+# Data and hiddne files
 *.png
 *.jpg
 *.pt
@@ -135,3 +136,4 @@ dmypy.json
 *.txt
 *.swp
 *.swo
+*/.DS_Store

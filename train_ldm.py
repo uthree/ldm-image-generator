@@ -6,15 +6,32 @@ import os
 from tqdm import tqdm
 import torch
 from transformers import Adafactor
+import argparse
 
-ddpm_path = "./ddpm.pt"
-vae_encoder_path = "./vae_encoder.pt"
-batch_size = 16
-num_epoch = 3000
+parser = argparse.ArgumentParser(description="Train Latent Diffusion Model")
+
+parser.add_argument('dataset_path')
+parser.add_argument('-d', '--device', default='cpu', choices=['cpu', 'cuda', 'mps'],
+                    help="Device setting. Set this option to cuda if you need to use ROCm.")
+parser.add_argument('-e', '--epoch', default=1, type=int)
+parser.add_argument('-b', '--batch', default=1, type=int)
+parser.add_argument('-mp', '--modelpath', default='./ddpm.pt')
+parser.add_argument('-ep', '--encpath', default='./vae_encoder.pt')
+parser.add_argument('-fp16', default=False, type=bool)
+parser.add_argument('-s', '--size', default=512, type=int)
+parser.add_argument('-m', '--maxdata', default=-1, type=int, help="max dataset size")
+
+args = parser.parse_args()
+device_name = args.device
+
+ddpm_path = args.modelpath
+vae_encoder_path = args.encpath
+batch_size = args.batch
+num_epoch = args.epoch
 learning_rate = 1e-4
-image_size = 512
-max_dataset_size = 20000
-use_autocast = True
+image_size = args.size
+max_dataset_size = args.maxdata
+use_autocast = args.fp16
 
 ddpm = DDPM()
 encoder = Encoder()
@@ -27,8 +44,18 @@ if os.path.exists(vae_encoder_path):
     encoder.load_state_dict(torch.load(vae_encoder_path))
     print("VAE Encoder Loaded.")
 
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-print(f"device: {device}")
+print(f"selected device: {device_name}")
+if device_name == 'cuda':
+    if not torch.cuda.is_available():
+        print("Error: cuda is not available in this environment.")
+        exit()
+
+if device_name == 'mps':
+    if not torch.backends.mps.is_built():
+        print("Error: mps is not available in this environment.")
+        exit()
+
+device = torch.device(device_name)
 
 ds = LatentImageDataset(sys.argv[1:], max_len=max_dataset_size, size=image_size, encoder=encoder, device=device)
 del encoder

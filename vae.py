@@ -5,7 +5,7 @@ from modules import ChannelNorm
 
 
 class VectorQuantizer(nn.Module):
-    def __init__(self, num_embeddings=8192, dim=512):
+    def __init__(self, num_embeddings=8192, dim=4):
         super().__init__()
         self.embeddings = nn.Parameter(torch.randn(num_embeddings, dim))
 

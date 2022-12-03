@@ -1,5 +1,5 @@
 from dataset import ImageDataset
-from vae import VAE, Encoder, Decoder, Discriminator
+from vae import VAE, Encoder, Decoder, Discriminator, VectorQuantizer
 import torch.nn.functional as F
 import torchvision.transforms as T
 import sys
@@ -10,45 +10,85 @@ from transformers import Adafactor
 from PIL import Image
 import numpy as np
 
-encoder_path = "./vae_encoder.pt"
-decoder_path = "./vae_decoder.pt"
-discriminator_path = "./vae_discriminator.pt"
-result_dir = "./vae_result/"
-batch_size = 6
-num_epoch = 3000
-image_size = 512
+import argparse
+
+parser = argparse.ArgumentParser(description="Train VAE")
+
+parser.add_argument('dataset_path')
+parser.add_argument('-d', '--device', default='cpu', choices=['cpu', 'cuda', 'mps'],
+                    help="Device setting. Set this option to cuda if you need to use ROCm.")
+parser.add_argument('-e', '--epoch', default=1, type=int)
+parser.add_argument('-b', '--batch', default=1, type=int)
+parser.add_argument('-r', '--result', default='./results')
+parser.add_argument('-ep', '--encpath', default='./vae_encoder.pt')
+parser.add_argument('-dp', '--decpath', default='./vae_decoder.pt')
+parser.add_argument('-qp', '--quantizerpath', default='vae_quantizer.pt')
+parser.add_argument('-discp', '--discpath', default='./discriminator.pt')
+parser.add_argument('-fp16', default=False, type=bool)
+parser.add_argument('-s', '--size', default=512, type=int)
+parser.add_argument('-m', '--maxdata', default=-1, type=int, help="max dataset size")
+parser.add_argument('--recon', default=10, type=float)
+
+args = parser.parse_args()
+
+device_name = args.device
+print(f"selected device: {device_name}")
+if device_name == 'cuda':
+    if not torch.cuda.is_available():
+        print("Error: cuda is not available in this environment.")
+        exit()
+
+if device_name == 'mps':
+    if not torch.backends.mps.is_built():
+        print("Error: mps is not available in this environment.")
+        exit()
+
+device = torch.device(device_name)
+
+encoder_path = args.encpath
+decoder_path = args.decpath
+quantizer_path = args.quantizerpath
+discriminator_path = args.discpath
+result_dir = args.result
+
+batch_size = args.batch
+num_epoch = args.epoch
+image_size = args.size
 crop_size = (192, 192)
 num_crop_per_batch = 1
-max_dataset_size = 10000
+max_dataset_size = args.maxdata
 weight_reg = 1.0
-weight_recon = 10.0
+weight_recon = args.recon
 weight_adv = 0.1
-use_autocast = True
+use_autocast = args.fp16
 
-ds = ImageDataset(sys.argv[1:], max_len=max_dataset_size, size=image_size)
+ds = ImageDataset([args.dataset_path], max_len=max_dataset_size, size=image_size)
 encoder = Encoder()
 decoder = Decoder()
+quantizer = VectorQuantizer()
 discriminator = Discriminator()
 crop = T.RandomCrop(crop_size)
 
 if os.path.exists(encoder_path):
-    encoder.load_state_dict(torch.load(encoder_path))
+    encoder.load_state_dict(torch.load(encoder_path, map_location=device))
     print("Encoder Model Loaded.")
 
 if os.path.exists(decoder_path):
-    decoder.load_state_dict(torch.load(decoder_path))
+    decoder.load_state_dict(torch.load(decoder_path, map_location=device))
     print("Decoder Model Loaded.")
 
 if os.path.exists(discriminator_path):
-    discriminator.load_state_dict(torch.load(discriminator_path))
+    discriminator.load_state_dict(torch.load(discriminator_path, map_location=device))
     print("Discriminator Model Loaded.")
+
+if os.path.exists(quantizer_path):
+    quantizer.load_state_dict(torch.load(quantizer_path, map_location=device))
+    print("Quantizer Model Loaded.")
     
 if not os.path.exists(result_dir):
     os.mkdir(result_dir)
 
-vae = VAE(encoder, decoder)
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-print(f"device: {device}")
+vae = VAE(encoder, decoder, quantizer)
 vae.to(device)
 discriminator.to(device)
 
@@ -94,6 +134,7 @@ for epoch in range(num_epoch):
             torch.save(encoder.state_dict(), encoder_path)
             torch.save(decoder.state_dict(), decoder_path)
             torch.save(discriminator.state_dict(), discriminator_path)
+            torch.save(quantizer.state_dict(), quantizer_path)
             img = torch.clamp(y[0].detach(), -1, 1)
 
             # Save Reconstructedd image

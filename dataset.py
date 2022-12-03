@@ -153,7 +153,7 @@ class LatentImageDataset(torch.utils.data.Dataset):
             # concatenate path
             path = os.path.join(self.cache_dir, str(i) + ".pt")
             # to numpy
-            img = img.convert("RGB")
+            img = empty.convert("RGB")
             img = np.array(img)
             # normalize
             img = img / 127.5 - 1.0
