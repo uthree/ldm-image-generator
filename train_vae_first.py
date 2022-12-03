@@ -6,7 +6,6 @@ import sys
 import os
 from tqdm import tqdm
 import torch
-import torch.optim as optim
 from transformers import Adafactor
 from PIL import Image
 import numpy as np
@@ -21,7 +20,7 @@ image_size = 512
 crop_size = (192, 192)
 num_crop_per_batch = 1
 max_dataset_size = 10000
-weight_kl = 1.0
+weight_reg = 1.0
 weight_recon = 10.0
 weight_adv = 0.1
 use_autocast = True
@@ -70,9 +69,9 @@ for epoch in range(num_epoch):
             image = crop(image)
         
             with torch.cuda.amp.autocast(enabled=use_autocast):
-                recon_loss, kl_loss, y = vae.calclate_loss(image)
+                recon_loss, reg_loss, y = vae.calclate_loss(image)
                 adv_loss = F.relu(-discriminator.calclate_logit(y)).mean()
-                loss = recon_loss * weight_recon + kl_loss * weight_kl + adv_loss * weight_adv
+                loss = recon_loss * weight_recon + reg_loss * weight_reg + adv_loss * weight_adv
 
             scaler.scale(loss).backward()
             scaler.step(optimizer_vae)
@@ -88,7 +87,7 @@ for epoch in range(num_epoch):
             scaler.step(optimizer_d)
 
             scaler.update()
-            bar.set_description(desc=f"Recon: {recon_loss.item():.4f}, KL {kl_loss.item():.4f}, Adv.: {adv_loss.item():.4f}, Disc.: {d_loss.item():.4f}")
+            bar.set_description(desc=f"Recon: {recon_loss.item():.4f}, Reg {reg_loss.item():.4f}, Adv.: {adv_loss.item():.4f}, Disc.: {d_loss.item():.4f}")
             bar.update(0)
         bar.update(N)
         if batch % 100 == 0:

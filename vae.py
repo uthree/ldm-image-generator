@@ -3,20 +3,43 @@ import torch.nn as nn
 import torch.nn.functional as F
 from modules import ChannelNorm
 
+
+class VectorQuantizer(nn.Module):
+    def __init__(self, num_embeddings=8192, dim=512):
+        super().__init__()
+        self.embeddings = nn.Parameter(torch.randn(num_embeddings, dim))
+
+    def calculate_loss(self, x):
+        e = self.embed(self.quantize(x))
+        reg_loss = F.l1_loss(x, e.detach())
+        embedding_loss = F.l1_loss(e, x.detach())
+        return embedding_loss + reg_loss
+
+    @torch.no_grad()
+    def quantize(self, x):
+        prob = torch.matmul(x, self.embeddings.transpose(0, 1))
+        indexes = torch.argmax(prob, dim=2)
+        return indexes
+
+    def embed(self, x):
+        out = F.embedding(x, self.embeddings)
+        return out
+
+
 class VAE(nn.Module):
-    def __init__(self, encoder, decoder):
+    def __init__(self, encoder, decoder, quantizer):
         super().__init__()
         self.encoder = encoder
         self.decoder = decoder
+        self.quantizer = quantizer
 
     def calclate_loss(self, x):
-        mean, logvar = self.encoder(x)
-        var = torch.exp(logvar)
-        loss_kl = (-1 - logvar + var).mean() + (mean ** 2).mean()
-        z = torch.randn_like(mean) * var + mean
+        z = self.encoder(x)
+        loss_reg = self.quantizer.calculate_loss(
+                z.reshape(z.shape[0], z.shape[1], -1).transpose(1,2))
         y = self.decoder(z)
         loss_recon = (x.detach()-y).abs().mean()
-        return loss_recon, loss_kl, y
+        return loss_recon, loss_reg, y
     
     @torch.no_grad()
     def encode(self, x, sigma=1):
@@ -51,7 +74,7 @@ class Encoder(nn.Module):
     def __init__(self, input_channels=3, latent_channels=4, channels=[64, 128, 256, 512], stages=[2, 2, 2, 2]):
         super().__init__()
         self.input_layer = nn.Conv2d(input_channels, channels[0], 1, 1, 0)
-        self.output_layer = nn.Conv2d(channels[-1], latent_channels*2, 1, 1, 0)
+        self.output_layer = nn.Conv2d(channels[-1], latent_channels, 1, 1, 0)
         self.stages = nn.ModuleList([ResStack(c, l) for c, l in zip(channels, stages)])
         self.downsamples = nn.ModuleList([])
         for i, c in enumerate(channels):
@@ -67,8 +90,7 @@ class Encoder(nn.Module):
         for a, b in zip(self.stages, self.downsamples):
             x = a(x)
             x = b(x)
-        mean, logvar = torch.chunk(self.output_layer(x), 2, dim=1)
-        return mean, logvar
+        return self.output_layer(x)
 
 class DecoderBlock(nn.Module):
     def __init__(self, channels):
