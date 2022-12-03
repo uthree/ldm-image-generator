@@ -6,31 +6,56 @@ from tqdm import tqdm
 import torch
 from PIL import Image
 import numpy as np
+import argparse
 
-ddpm_path = "./ddpm.pt"
-vae_decoder_path = "vae_decoder.pt"
-image_size = 256
+parser = argparse.ArgumentParser(description="Sample LDM")
+
+parser.add_argument('-dp', '--ddpmpath', default='./ddpm.pt')
+parser.add_argument('-decp', '--decpath', default='./vae_decoder.pt')
+parser.add_argument('-d', '--device', default='cpu', choices=['cpu', 'cuda', 'mps'],
+                    help="Device setting. Set this option to cuda if you need to use ROCm.")
+parser.add_argument('-fp16', default=False, type=bool)
+parser.add_argument('-s', '--size', default=512, type=int)
+parser.add_argument('-n', '--numimages', default=1, type=int)
+parser.add_argument('-t', '--timesteps', default=30, type=int)
+parser.add_argument('--seed', default=0, type=int)
+
+args = parser.parse_args()
+
+ddpm_path = args.ddpmpath
+vae_decoder_path = args.decpath
+image_size = args.size
 latent_space_downscale_ratio = 8
 result_dir = "./ddpm_outputs/"
-num_images = 30
-use_cpu = True
+num_images = args.numimages
+use_cpu = args.fp16
 
+device_name = args.device
+
+print(f"selected device: {device_name}")
+if device_name == 'cuda':
+    if not torch.cuda.is_available():
+        print("Error: cuda is not available in this environment.")
+        exit()
+
+if device_name == 'mps':
+    if not torch.backends.mps.is_built():
+        print("Error: mps is not available in this environment.")
+        exit()
+
+device = torch.device(device_name)
 ddpm = DDPM()
 decoder = Decoder()
 
 if os.path.exists(ddpm_path):
-    ddpm.load_state_dict(torch.load(ddpm_path))
+    ddpm.load_state_dict(torch.load(ddpm_path, map_location=device))
     print("DDPM Model Loaded.")
 
 if os.path.exists(vae_decoder_path):
-    decoder.load_state_dict(torch.load(vae_decoder_path))
+    decoder.load_state_dict(torch.load(vae_decoder_path, map_location=device))
     print("VAE Decoder Loaded.")
 
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-if use_cpu:
-    device = torch.device('cpu')
 
-print(f"device: {device}")
 ddpm.to(device)
 decoder.to(device)
 
@@ -39,9 +64,12 @@ if not os.path.exists(result_dir):
 
 # Convert to latent size
 image_size = image_size // latent_space_downscale_ratio
+torch.manual_seed(args.seed)
+if torch.cuda.is_available():
+    torch.cuda.manual_seed(args.seed)
 
 for i in range(num_images):
-    img = ddpm.sample((1, 4, image_size, image_size), seed=i, num_steps=30)
+    img = ddpm.sample((1, 4, image_size, image_size), seed=None, num_steps=args.timesteps)
     with torch.no_grad():
         img = decoder(img)
     img = torch.clamp(img, -1, 1)
