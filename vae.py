@@ -33,8 +33,8 @@ class VAE(nn.Module):
         self.decoder = decoder
         self.quantizer = quantizer
 
-    def calclate_loss(self, x):
-        z = self.encoder(x)
+    def calclate_loss(self, x, noise_gain=0.1):
+        z = self.encoder(x) + torch.randn(*x.shape, x.device) * noise_gain
         loss_reg = self.quantizer.calculate_loss(
                 z.reshape(z.shape[0], z.shape[1], -1).transpose(1,2))
         y = self.decoder(z)
@@ -42,10 +42,8 @@ class VAE(nn.Module):
         return loss_recon, loss_reg, y
     
     @torch.no_grad()
-    def encode(self, x, sigma=1):
-        mean, logvar = self.encoder(x)
-        var = torch.exp(logvar)
-        z = torch.randn_like(mean) * var * sigma + mean
+    def encode(self, x):
+        z = self.encoder(x)
         return z
     
     @ torch.no_grad()
