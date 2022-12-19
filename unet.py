@@ -22,32 +22,34 @@ class Encodings(nn.Module):
         return x
 
 class SwinBlock(nn.Module):
-    def __init__(self, channels, head_dim=32, window_size=8, shift=0):
+    def __init__(self, channels, head_dim=32, window_size=8, shift=0, attention=True):
         super().__init__()
         self.norm = ChannelNorm(channels)
         self.ffn = ReGLU(channels)
         self.conv = nn.Conv2d(channels, channels, 3, 1, 1, groups=channels)
-        self.self_attention = WindowAttention(channels, n_heads=channels//head_dim, window_size=window_size, shift=shift)
-        self.cross_attention = CrossAttention(channels, n_heads=channels//head_dim)
+        self.attention_flag = attention
+        if attention:
+            self.self_attention = WindowAttention(channels, n_heads=channels//head_dim, window_size=window_size, shift=shift)
+            self.cross_attention = CrossAttention(channels, n_heads=channels//head_dim)
         self.encodings = Encodings(channels)
 
     def forward(self, x, t, c=None):
         res = x
         x = self.norm(x)
         x = self.encodings(x, t)
-        x = self.self_attention(x) + self.ffn(x) + self.conv(x)
-        if c != None:
+        x = self.ffn(x) + self.conv(x) + (self.self_attention(x) if self.attention_flag else 0)
+        if c != None and self.attention_flag:
             x = x + self.cross_attention(x, c)
         x = x + res
         return x
 
 class SwinStack(nn.Module):
-    def __init__(self, channels, head_dim=32, window_size=8, num_blocks=2):
+    def __init__(self, channels, head_dim=32, window_size=8, num_blocks=2, attention=True):
         super().__init__()
         self.blocks = nn.ModuleList([])
         for i in range(num_blocks):
             shift = window_size // 2 if i % 2 == 0 else 0
-            self.blocks.append(SwinBlock(channels, head_dim, window_size, shift))
+            self.blocks.append(SwinBlock(channels, head_dim, window_size, shift, attention=attention))
 
     def forward(self, x, t, c=None):
         for b in self.blocks:
@@ -61,14 +63,14 @@ class UNetBlock(nn.Module):
         self.ch_conv = ch_conv
 
 class UNet(nn.Module):
-    def __init__(self, input_channels=4, stages=[2, 3, 4, 4], channels=[96, 192, 384, 768], stem_size=1):
+    def __init__(self, input_channels=4, stages=[2, 2, 12, 6], channels=[96, 192, 384, 768], stem_size=1):
         super().__init__()
         self.encoder_first = nn.Conv2d(input_channels, channels[0], stem_size, stem_size, 0)
         self.decoder_last = nn.ConvTranspose2d(channels[0], input_channels, stem_size, stem_size, 0)
         self.encoder_stages = nn.ModuleList([])
         self.decoder_stages = nn.ModuleList([])
         for i, (l, c) in enumerate(zip(stages, channels)):
-            enc_stage = SwinStack(c, num_blocks=l)
+            enc_stage = SwinStack(c, num_blocks=l, attention=False)
             enc_ch_conv = nn.Identity() if i == len(stages)-1 else nn.Sequential(nn.Conv2d(channels[i], channels[i+1], 1, 1, 0), nn.AvgPool2d(kernel_size=2))
             dec_stage = SwinStack(c, num_blocks=l)
             dec_ch_conv = nn.Identity() if i == len(stages)-1 else nn.Sequential(nn.Upsample(scale_factor=2) ,nn.Conv2d(channels[i+1], channels[i], 1, 1, 0))

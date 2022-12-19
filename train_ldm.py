@@ -20,6 +20,8 @@ parser.add_argument('-ep', '--encpath', default='./vae_encoder.pt')
 parser.add_argument('-fp16', default=False, type=bool)
 parser.add_argument('-s', '--size', default=512, type=int)
 parser.add_argument('-m', '--maxdata', default=-1, type=int, help="max dataset size")
+parser.add_argument('-lr', '--learningrate', default=1e-4, type=float)
+parser.add_argument('-bm', '--batch_multiply', default=1, type=int)
 
 args = parser.parse_args()
 device_name = args.device
@@ -28,10 +30,11 @@ ddpm_path = args.modelpath
 vae_encoder_path = args.encpath
 batch_size = args.batch
 num_epoch = args.epoch
-learning_rate = 1e-4
+learning_rate = args.learningrate
 image_size = args.size
 max_dataset_size = args.maxdata
 use_autocast = args.fp16
+bm = args.batch_multiply
 
 ddpm = DDPM()
 encoder = Encoder()
@@ -61,7 +64,7 @@ ds = LatentImageDataset(sys.argv[1:], max_len=max_dataset_size, size=image_size,
 del encoder
 
 ddpm.to(device)
-optimizer = Adafactor(ddpm.parameters())
+optimizer = Adafactor(ddpm.parameters(), lr=learning_rate, relative_step=False)
 scaler = torch.cuda.amp.GradScaler(enabled=use_autocast)
 
 dl = torch.utils.data.DataLoader(ds, batch_size=batch_size, shuffle=True)
@@ -70,14 +73,16 @@ for epoch in range(num_epoch):
     print(f"Epoch #{epoch}")
     for batch, image in enumerate(dl):
         N = image.shape[0]
-        optimizer.zero_grad()
+        if batch % bm == 0:
+            optimizer.zero_grad()
         image = image.to(device)
         
         with torch.cuda.amp.autocast(enabled=use_autocast):
             ddpm_loss = ddpm.calculate_loss(image)
             loss = ddpm_loss
         scaler.scale(loss).backward()
-        scaler.step(optimizer)
+        if batch % bm == 0:
+            scaler.step(optimizer)
     
         scaler.update()
         bar.set_description(desc=f"loss: {ddpm_loss.item():.4f}")
