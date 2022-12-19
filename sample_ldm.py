@@ -28,7 +28,7 @@ image_size = args.size
 latent_space_downscale_ratio = 8
 result_dir = "./ddpm_outputs/"
 num_images = args.numimages
-use_cpu = args.fp16
+use_autocast = args.fp16
 
 device_name = args.device
 
@@ -48,16 +48,16 @@ ddpm = DDPM()
 decoder = Decoder()
 
 if os.path.exists(ddpm_path):
-    ddpm.load_state_dict(torch.load(ddpm_path, map_location=device))
+    ddpm.load_state_dict(torch.load(ddpm_path, map_location='cpu'))
     print("DDPM Model Loaded.")
 
 if os.path.exists(vae_decoder_path):
-    decoder.load_state_dict(torch.load(vae_decoder_path, map_location=device))
+    decoder.load_state_dict(torch.load(vae_decoder_path, map_location='cpu'))
     print("VAE Decoder Loaded.")
 
 
-ddpm.to(device)
-decoder.to(device)
+ddpm = ddpm.to(device)
+decoder = decoder.to(device)
 
 if not os.path.exists(result_dir):
     os.mkdir(result_dir)
@@ -69,7 +69,7 @@ if torch.cuda.is_available():
     torch.cuda.manual_seed(args.seed)
 
 for i in range(num_images):
-    img = ddpm.sample((1, 4, image_size, image_size), seed=None, num_steps=args.timesteps)
+    img = ddpm.sample((1, 4, image_size, image_size), seed=None, num_steps=args.timesteps, use_autocast = use_autocast)
     with torch.no_grad():
         img = decoder(img)
     img = torch.clamp(img, -1, 1)
