@@ -83,8 +83,8 @@ for epoch in range(num_epoch):
         scaler.scale(loss).backward()
         if batch % bm == 0:
             scaler.step(optimizer)
-    
-        scaler.update()
+            scaler.update()
+
         bar.set_description(desc=f"loss: {ddpm_loss.item():.4f}")
         bar.update(N)
         if batch % 300 == 0:
