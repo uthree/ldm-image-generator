@@ -49,7 +49,12 @@ class SwinStack(nn.Module):
         self.blocks = nn.ModuleList([])
         for i in range(num_blocks):
             shift = window_size // 2 if i % 2 == 0 else 0
-            self.blocks.append(SwinBlock(channels, head_dim, window_size, shift, attention=attention))
+            # add attention only last 2 layers
+            if i >= num_blocks-2:
+                flag_attn = attention
+            else:
+                flag_attn = False
+            self.blocks.append(SwinBlock(channels, head_dim, window_size, shift, attention=flag_attn))
 
     def forward(self, x, t, c=None):
         for b in self.blocks:
@@ -63,7 +68,7 @@ class UNetBlock(nn.Module):
         self.ch_conv = ch_conv
 
 class UNet(nn.Module):
-    def __init__(self, input_channels=4, stages=[2, 2, 12, 6], channels=[96, 192, 384, 768], stem_size=1):
+    def __init__(self, input_channels=4, stages=[2, 2, 6, 2], channels=[96, 192, 384, 512], stem_size=1):
         super().__init__()
         self.encoder_first = nn.Conv2d(input_channels, channels[0], stem_size, stem_size, 0)
         self.decoder_last = nn.ConvTranspose2d(channels[0], input_channels, stem_size, stem_size, 0)
