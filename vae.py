@@ -17,8 +17,8 @@ class VectorQuantizer(nn.Module):
 
     @torch.no_grad()
     def quantize(self, x):
-        prob = torch.matmul(x, self.embeddings.transpose(0, 1))
-        indexes = torch.argmax(prob, dim=2)
+        distance = torch.sqrt(x**2 - self.embeddings**2)
+        indexes = torch.argmin(distance, dim=2)
         return indexes
 
     def embed(self, x):
