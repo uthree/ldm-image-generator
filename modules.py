@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import random
 
 # ReGLU
 class ReGLU(nn.Module):
@@ -22,3 +23,13 @@ class ChannelNorm(nn.Module):
     def forward(self, x):
         x = (x - x.mean(dim=1, keepdim=True)) / torch.sqrt(x.var(dim=1, keepdim=True) + self.eps)
         return x
+
+# Randomly choiced Mixture of Experts
+class RandomMoE(nn.Module):
+    def __init__(self, channels, ffn_mul=2, num_experts=4):
+        super().__init__()
+        self.experts = nn.ModuleList([ReGLU(channels, ffn_mul=ffn_mul)])
+    
+    def forward(self, x):
+        mod = random.choice(self.experts)
+        return mod(x)

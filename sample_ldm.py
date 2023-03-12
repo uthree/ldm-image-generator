@@ -69,7 +69,7 @@ if torch.cuda.is_available():
     torch.cuda.manual_seed(args.seed)
 
 for i in range(num_images):
-    img = ddpm.sample((1, 4, image_size, image_size), seed=None, num_steps=args.timesteps, use_autocast = use_autocast)
+    img = ddpm.sample((1, 8, image_size, image_size), seed=None, num_steps=args.timesteps, use_autocast = use_autocast)
     with torch.no_grad():
         img = decoder(img)
     img = torch.clamp(img, -1, 1)

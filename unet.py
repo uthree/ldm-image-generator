@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from sinusoidal import TimeEncoding2d, PositionalEncoding2d
-from modules import ReGLU, ChannelNorm
+from modules import RandomMoE, ChannelNorm
 from attention import WindowAttention, CrossAttention
 import random
 
@@ -23,10 +23,10 @@ class Encodings(nn.Module):
         return x
 
 class SwinBlock(nn.Module):
-    def __init__(self, channels, head_dim=32, window_size=8, shift=0, attention=True, stochastic_depth=0.25):
+    def __init__(self, channels, head_dim=32, window_size=6, shift=0, attention=True, stochastic_depth=0.25):
         super().__init__()
         self.norm = ChannelNorm(channels)
-        self.ffn = ReGLU(channels)
+        self.ffn = RandomMoE(channels)
         self.conv = nn.Conv2d(channels, channels, 3, 1, 1, groups=channels)
         self.stochastic_depth = stochastic_depth
         self.attention_flag = attention
@@ -48,7 +48,7 @@ class SwinBlock(nn.Module):
         return x
 
 class SwinStack(nn.Module):
-    def __init__(self, channels, head_dim=32, window_size=8, num_blocks=2, attention=True):
+    def __init__(self, channels, head_dim=32, window_size=6, num_blocks=2, attention=True):
         super().__init__()
         self.blocks = nn.ModuleList([])
         for i in range(num_blocks):
@@ -72,7 +72,7 @@ class UNetBlock(nn.Module):
         self.ch_conv = ch_conv
 
 class UNet(nn.Module):
-    def __init__(self, input_channels=4, stages=[3, 3, 9, 3], channels=[96, 192, 384, 768], stem_size=1):
+    def __init__(self, input_channels=8, stages=[3, 3, 9, 3], channels=[96, 192, 384, 768], stem_size=1):
         super().__init__()
         self.encoder_first = nn.Conv2d(input_channels, channels[0], stem_size, stem_size, 0)
         self.decoder_last = nn.ConvTranspose2d(channels[0], input_channels, stem_size, stem_size, 0)

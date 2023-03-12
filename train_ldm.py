@@ -5,7 +5,7 @@ import sys
 import os
 from tqdm import tqdm
 import torch
-from transformers import Adafactor
+from lion_pytorch import Lion
 import argparse
 
 parser = argparse.ArgumentParser(description="Train Latent Diffusion Model")
@@ -64,7 +64,7 @@ ds = LatentImageDataset(sys.argv[1:], max_len=max_dataset_size, size=image_size,
 del encoder
 
 ddpm.to(device)
-optimizer = Adafactor(ddpm.parameters(), lr=learning_rate, relative_step=False)
+optimizer = Lion(ddpm.parameters(), lr=learning_rate)
 scaler = torch.cuda.amp.GradScaler(enabled=use_autocast)
 
 dl = torch.utils.data.DataLoader(ds, batch_size=batch_size, shuffle=True)

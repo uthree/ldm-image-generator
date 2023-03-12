@@ -5,7 +5,7 @@ from modules import ChannelNorm
 
 
 class VectorQuantizer(nn.Module):
-    def __init__(self, num_embeddings=8192, dim=4):
+    def __init__(self, num_embeddings=8192, dim=8):
         super().__init__()
         self.embeddings = nn.Parameter(torch.randn(num_embeddings, dim))
 
@@ -70,7 +70,7 @@ class ResStack(nn.Module):
         return self.seq(x)
 
 class Encoder(nn.Module):
-    def __init__(self, input_channels=3, latent_channels=4, channels=[64, 128, 256, 512], stages=[2, 2, 2, 2]):
+    def __init__(self, input_channels=3, latent_channels=8, channels=[64, 128, 256, 512], stages=[2, 2, 2, 2]):
         super().__init__()
         self.input_layer = nn.Conv2d(input_channels, channels[0], 1, 1, 0)
         self.output_layer = nn.Conv2d(channels[-1], latent_channels, 1, 1, 0)
@@ -120,7 +120,7 @@ class DecoderStack(nn.Module):
         return x, self.to_rgb(x)
 
 class Decoder(nn.Module):
-    def __init__(self, output_channels=3, latent_channels=4, channels=[512, 256, 128, 64], stages=[2, 2, 2, 2]):
+    def __init__(self, output_channels=3, latent_channels=8, channels=[512, 256, 128, 64], stages=[2, 2, 2, 2]):
         super().__init__()
         self.input_layer = nn.Conv2d(latent_channels, channels[0], 1, 1, 0)
         self.output_layer = nn.Conv2d(channels[-1], output_channels, 1, 1, 0)
