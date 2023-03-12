@@ -32,5 +32,5 @@ class RandomMoE(nn.Module):
         self.experts = nn.ModuleList([ReGLU(channels, ffn_mul=ffn_mul) for _ in range(num_experts)])
     
     def forward(self, x):
-        mod = random.choice(self.experts)
-        return mod(x) + self.general(x)
+        e1, e2 = random.sample(list(self.experts), 2)
+        return self.general(x) + e1(x) + e2(x)
