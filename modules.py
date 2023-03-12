@@ -26,7 +26,7 @@ class ChannelNorm(nn.Module):
 
 # Randomly choiced Mixture of Experts
 class RandomMoE(nn.Module):
-    def __init__(self, channels, ffn_mul=2, num_experts=4):
+    def __init__(self, channels, ffn_mul=1, num_experts=4):
         super().__init__()
         self.general = ReGLU(channels, ffn_mul=ffn_mul)
         self.experts = nn.ModuleList([ReGLU(channels, ffn_mul=ffn_mul) for _ in range(num_experts)])
