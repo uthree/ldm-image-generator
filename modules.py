@@ -28,8 +28,9 @@ class ChannelNorm(nn.Module):
 class RandomMoE(nn.Module):
     def __init__(self, channels, ffn_mul=2, num_experts=4):
         super().__init__()
-        self.experts = nn.ModuleList([ReGLU(channels, ffn_mul=ffn_mul)])
+        self.general = ReGLU(channels, ffn_mul=ffn_mul)
+        self.experts = nn.ModuleList([ReGLU(channels, ffn_mul=ffn_mul) for _ in range(num_experts)])
     
     def forward(self, x):
         mod = random.choice(self.experts)
-        return mod(x)
+        return mod(x) + self.general(x)
