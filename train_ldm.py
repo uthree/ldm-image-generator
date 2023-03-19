@@ -88,4 +88,5 @@ for epoch in range(num_epoch):
         bar.set_description(desc=f"loss: {ddpm_loss.item():.4f}")
         bar.update(N)
         if batch % 300 == 0:
+            tqdm.write('Model is saved!')
             torch.save(ddpm.state_dict(), ddpm_path)
