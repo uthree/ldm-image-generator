@@ -81,7 +81,7 @@ class Encoder(nn.Module):
                 self.downsamples.append(nn.Identity())
             else:
                 self.downsamples.append(nn.Sequential(
-                    nn.MaxPool2d(kernel_size=2),
+                    nn.AvgPool2d(kernel_size=2),
                     nn.Conv2d(c, channels[i+1], 1, 1, 0)))
 
     def forward(self, x):
@@ -141,7 +141,7 @@ class Decoder(nn.Module):
             if rgb_out == None:
                 rgb_out = rgb
             else:
-                rgb_out = F.interpolate(rgb_out, scale_factor=2) + rgb
+                rgb_out = F.interpolate(rgb_out, scale_factor=2, mode='bilinear') + rgb
         return rgb_out
 
 class Discriminator(nn.Module):
