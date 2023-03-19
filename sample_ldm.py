@@ -15,7 +15,7 @@ parser.add_argument('-decp', '--decpath', default='./vae_decoder.pt')
 parser.add_argument('-d', '--device', default='cpu', choices=['cpu', 'cuda', 'mps'],
                     help="Device setting. Set this option to cuda if you need to use ROCm.")
 parser.add_argument('-fp16', default=False, type=bool)
-parser.add_argument('-s', '--size', default=512, type=int)
+parser.add_argument('-s', '--size', default=256, type=int)
 parser.add_argument('-n', '--numimages', default=1, type=int)
 parser.add_argument('-t', '--timesteps', default=30, type=int)
 parser.add_argument('--seed', default=0, type=int)
