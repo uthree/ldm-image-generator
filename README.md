@@ -28,3 +28,6 @@ python3 train_ldm.py <Dataset Directory Path> -e <num_epoch> -d <Device>
 ```sh
 python3 sample.py
 ```
+
+# FP16学習
+訓練時に `-fp16 True` をつけるとfp16での学習になります。NVIDIA製の新しいGPUだと高速化とVRAM節約ができます。
