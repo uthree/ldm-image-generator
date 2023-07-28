@@ -64,7 +64,7 @@ ds = LatentImageDataset(sys.argv[1:], max_len=max_dataset_size, size=image_size,
 del encoder
 
 ddpm.to(device)
-optimizer = Optim.AdamW(ddpm.parameters(), lr=learning_rate)
+optimizer = optim.AdamW(ddpm.parameters(), lr=learning_rate)
 scaler = torch.cuda.amp.GradScaler(enabled=use_autocast)
 
 dl = torch.utils.data.DataLoader(ds, batch_size=batch_size, shuffle=True)
