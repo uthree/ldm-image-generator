@@ -55,11 +55,15 @@ class ResBlock(nn.Module):
     def __init__(self, channels):
         super().__init__()
         self.c1 = nn.Conv2d(channels, channels, 3, 1, 1)
-        self.act = nn.LeakyReLU(0.2)
         self.c2 = nn.Conv2d(channels, channels, 3, 1, 1)
 
     def forward(self, x):
-        return self.c2(self.act(self.c1(x))) + x
+        s = x
+        x = self.c1(x)
+        x = F.leaky_relu(x)
+        x = self.c2(x)
+        x = F.leaky_relu(x)
+        return x + s
 
 class ResStack(nn.Module):
     def __init__(self, channels, num_layers=2):
@@ -91,28 +95,11 @@ class Encoder(nn.Module):
             x = b(x)
         return self.output_layer(x)
 
-class DecoderBlock(nn.Module):
-    def __init__(self, channels):
-        super().__init__()
-        self.c1 = nn.Conv2d(channels, channels, 7, 1, 3)
-        self.norm = ChannelNorm(channels)
-        self.c2  = nn.Conv2d(channels, channels, 1, 1, 0)
-        self.act = nn.LeakyReLU(0.2)
-        self.c3 = nn.Conv2d(channels, channels, 1, 1, 0)
-
-    def forward(self, x):
-        res = x
-        x = self.c1(x)
-        x = self.norm(x)
-        x = self.c2(x)
-        x = self.act(x)
-        x = self.c3(x)
-        return x + res
 
 class DecoderStack(nn.Module):
     def __init__(self, channels, num_layers, output_channels=3):
         super().__init__()
-        self.layers = nn.Sequential(*[DecoderBlock(channels) for _ in range(num_layers)])
+        self.layers = nn.Sequential(*[ResBlock(channels) for _ in range(num_layers)])
         self.to_rgb = nn.Conv2d(channels, output_channels, 1, 1, 0)
 
     def forward(self, x):
