@@ -27,7 +27,7 @@ class SwinBlock(nn.Module):
         super().__init__()
         self.norm = ChannelNorm(channels)
         self.ffn = RandomMoE(channels)
-        self.conv = nn.Conv2d(channels, channels, 3, 1, 1, groups=channels)
+        self.conv = nn.Conv2d(channels, channels, 3, 1, 1, groups=channels//head_dim)
         self.stochastic_depth = stochastic_depth
         self.attention_flag = attention
         if attention:
@@ -72,7 +72,7 @@ class UNetBlock(nn.Module):
         self.ch_conv = ch_conv
 
 class UNet(nn.Module):
-    def __init__(self, input_channels=8, stages=[2, 2, 6, 2], channels=[96, 192, 384, 512], stem_size=1):
+    def __init__(self, input_channels=8, stages=[3, 3, 9, 3], channels=[128, 256, 512, 1024], stem_size=1):
         super().__init__()
         self.encoder_first = nn.Conv2d(input_channels, channels[0], stem_size, stem_size, 0)
         self.decoder_last = nn.ConvTranspose2d(channels[0], input_channels, stem_size, stem_size, 0)
